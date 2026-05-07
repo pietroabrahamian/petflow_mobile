@@ -1,5 +1,8 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 import { View, Text, StyleSheet } from "react-native"
+import MaterialIcons from "@expo/vector-icons/MaterialIcons"
+
+import PetListScreen from "../screens/PetListScreen"
 
 const Tab = createBottomTabNavigator()
 
@@ -13,10 +16,29 @@ function PlaceholderScreen({ title }: { title: string }) {
 
 export default function MainTabs() {
     return (
-        <Tab.Navigator>
-            <Tab.Screen name="PetListScreen" options={{ title: "Meus Pets" }}>
-                {() => <PlaceholderScreen title="Meus Pets" />}
-            </Tab.Screen>
+        <Tab.Navigator
+            screenOptions={({ route }) => ({
+                tabBarActiveTintColor: "#2D6A4F",
+                tabBarInactiveTintColor: "#999",
+                tabBarLabelStyle: { fontSize: 12 },
+                tabBarIcon: ({ color, size }) => {
+                    let iconName: any
+                    switch (route.name) {
+                        case "PetListScreen": iconName = "pets"; break
+                        case "ClinicListScreen": iconName = "local-hospital"; break
+                        case "CouponListScreen": iconName = "local-offer"; break
+                        case "SettingsScreen": iconName = "settings"; break
+                        default: iconName = "home"
+                    }
+                    return <MaterialIcons name={iconName} size={size} color={color} />
+                }
+            })}
+        >
+            <Tab.Screen
+                name="PetListScreen"
+                component={PetListScreen}
+                options={{ title: "Meus Pets", headerShown: false }}
+            />
             <Tab.Screen name="ClinicListScreen" options={{ title: "Clínicas" }}>
                 {() => <PlaceholderScreen title="Clínicas" />}
             </Tab.Screen>
