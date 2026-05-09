@@ -3,28 +3,50 @@ import {
     Text,
     StyleSheet,
     FlatList,
+    Pressable,
+    TouchableOpacity,
 } from "react-native"
+import { useEffect, useState } from "react"
+import { useNavigation } from "@react-navigation/native"
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context"
 
 import PetRow, { Pet } from "../components/PetRow"
-import data from "../data/petflow.json"
+import { getPets } from "../services/petService"
 
 export default function PetListScreen() {
-    const pets: Pet[] = data.pets
+    const navigation = useNavigation<any>()
+    const [pets, setPets] = useState<Pet[]>([])
+
+    useEffect(() => {
+        getPets().then(setPets)
+    }, [])
 
     return (
         <SafeAreaProvider>
             <SafeAreaView style={styles.container}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>Meus Pets</Text>
-                    <Text style={styles.subtitle}>{pets.length} pets cadastrados</Text>
+                    <View>
+                        <Text style={styles.title}>Meus Pets</Text>
+                        <Text style={styles.subtitle}>{pets.length} pets cadastrados</Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate("PetFormScreen")}
+                    >
+                        <Text style={styles.addButton}>+</Text>
+                    </TouchableOpacity>
                 </View>
 
                 <FlatList
                     style={styles.list}
                     data={pets}
                     keyExtractor={(item) => item.id.toString()}
-                    renderItem={({ item }) => <PetRow pet={item} />}
+                    renderItem={({ item }) => (
+                        <Pressable
+                            onPress={() => navigation.navigate("PetDetailsScreen", { pet: item })}
+                        >
+                            <PetRow pet={item} />
+                        </Pressable>
+                    )}
                     ItemSeparatorComponent={() => <View style={styles.separator} />}
                     showsVerticalScrollIndicator={false}
                 />
@@ -54,6 +76,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         marginTop: 4,
+    },
+    addButton: {
+        color: '#2D6A4F',
+        fontSize: 32,
+        fontWeight: '900',
     },
     list: {
         marginVertical: 16,
