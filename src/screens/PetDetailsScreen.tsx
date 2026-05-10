@@ -83,6 +83,34 @@ export default function PetDetailsScreen() {
                         </View>
                     )}
 
+                    {/* Eventos de saúde */}
+                    <Text style={styles.sectionTitle}>HISTÓRICO DE SAÚDE</Text>
+                    <View style={styles.eventsCard}>
+                        {events.length === 0 ? (
+                            <Text style={styles.emptyText}>Nenhum evento registrado</Text>
+                        ) : (
+                            events.map((evt, idx) => {
+                                const evtClinic = data.clinics.find(c => c.id === evt.clinic_id)
+                                return (
+                                    <View key={evt.id}>
+                                        <View style={styles.eventRow}>
+                                            <View style={styles.eventDot} />
+                                            <View style={styles.eventInfo}>
+                                                <Text style={styles.eventType}>{evt.event_type}</Text>
+                                                <Text style={styles.eventClinic}>{evtClinic?.name}</Text>
+                                                <Text style={styles.eventNotes}>{evt.notes}</Text>
+                                                <Text style={styles.eventDate}>
+                                                    {new Date(evt.event_date).toLocaleDateString('pt-BR')}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        {idx < events.length - 1 && <View style={styles.eventSep} />}
+                                    </View>
+                                )
+                            })
+                        )}
+                    </View>
+
                     <TouchableOpacity
                         style={styles.editButton}
                         onPress={() => navigation.navigate("PetFormScreen", { pet })}
