@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack'
 
 import MainTabs from './src/components/MainTabs'
 import PetDetailsScreen from './src/screens/PetDetailsScreen'
+import PetFormScreen from './src/screens/PetFormScreen'
 
 const Stack = createNativeStackNavigator()
 
@@ -22,6 +23,14 @@ export default function App() {
           options={{
             headerBackButtonDisplayMode: "minimal",
             headerTitle: "",
+            headerTintColor: "#2D6A4F",
+          }}
+        />
+        <Stack.Screen
+          name="PetFormScreen"
+          component={PetFormScreen}
+          options={{
+            headerBackButtonDisplayMode: "minimal",
             headerTintColor: "#2D6A4F",
           }}
         />
