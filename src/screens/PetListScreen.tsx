@@ -2,13 +2,13 @@ import {
     View,
     Text,
     StyleSheet,
-    FlatList,
-    Pressable,
     TouchableOpacity,
+    FlatList,
+    Pressable
 } from "react-native"
-import { useEffect, useState } from "react"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, useFocusEffect } from "@react-navigation/native"
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context"
+import { useCallback, useState } from "react"
 
 import PetRow, { Pet } from "../components/PetRow"
 import { getPets } from "../services/petService"
@@ -17,9 +17,18 @@ export default function PetListScreen() {
     const navigation = useNavigation<any>()
     const [pets, setPets] = useState<Pet[]>([])
 
-    useEffect(() => {
-        getPets().then(setPets)
+    const loadPets = useCallback(async () => {
+        const list = await getPets()
+        setPets(list)
     }, [])
+
+    // Recarrega a lista sempre que a tela volta a ter foco
+    // (ex: após cadastrar um novo pet e voltar para a lista)
+    useFocusEffect(
+        useCallback(() => {
+            loadPets()
+        }, [loadPets])
+    )
 
     return (
         <SafeAreaProvider>
