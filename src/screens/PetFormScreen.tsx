@@ -5,13 +5,15 @@ import {
     TextInput,
     TouchableOpacity,
     ScrollView,
+    Alert,
 } from "react-native"
 import { s } from 'react-native-size-matters'
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation, useRoute } from "@react-navigation/native"
-import { useState, useLayoutEffect } from "react"
+import { useState, useEffect, useLayoutEffect } from "react"
 
 import data from "../data/petflow.json"
+import { addPet, updatePet } from "../services/petService"
 
 export default function PetFormScreen() {
     const [name, setName] = useState("")
@@ -19,6 +21,7 @@ export default function PetFormScreen() {
     const [birthDate, setBirthDate] = useState("")
     const [weight, setWeight] = useState("")
     const [speciesId, setSpeciesId] = useState<number | null>(null)
+    const [planId, setPlanId] = useState<number | null>(null)
 
     const route = useRoute<any>()
     const navigation = useNavigation<any>()
@@ -28,8 +31,85 @@ export default function PetFormScreen() {
         navigation.setOptions({ title: pet == null ? "Cadastrar Pet" : "Editar Pet" })
     }, [])
 
-    const handleSave = () => {
-        console.log("Salvando:", { name, breed, birthDate, weight, speciesId })
+    useEffect(() => {
+        if (pet) {
+            setName(pet.name)
+            setBreed(pet.breed)
+            setBirthDate(formatDateBR(pet.birth_date))
+            setWeight(String(pet.weight))
+            setSpeciesId(pet.species_id)
+            setPlanId(pet.plan_id)
+        }
+    }, [])
+
+    const formatDateBR = (isoDate: string) => {
+        const d = new Date(isoDate)
+        const dd = String(d.getDate()).padStart(2, '0')
+        const mm = String(d.getMonth() + 1).padStart(2, '0')
+        return `${dd}/${mm}/${d.getFullYear()}`
+    }
+
+    const parseDateBR = (dateBR: string): string => {
+        const [dd, mm, yyyy] = dateBR.split('/')
+        return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`
+    }
+
+    const handleSave = async () => {
+        if (name.length === 0) {
+            Alert.alert("Campo inválido", "Digite o nome do pet")
+            return
+        }
+        if (breed.length === 0) {
+            Alert.alert("Campo inválido", "Digite a raça do pet")
+            return
+        }
+        if (birthDate.length < 10 || !birthDate.includes('/')) {
+            Alert.alert("Campo inválido", "Digite a data no formato DD/MM/AAAA")
+            return
+        }
+        const parsedWeight = parseFloat(weight.replace(",", "."))
+        if (Number.isNaN(parsedWeight)) {
+            Alert.alert("Campo inválido", "Informe um peso válido")
+            return
+        }
+        if (speciesId == null) {
+            Alert.alert("Campo inválido", "Selecione a espécie")
+            return
+        }
+
+        const species = data.species.find(sp => sp.id === speciesId)
+        const petData = {
+            species_id: speciesId,
+            species_name: species?.name || "",
+            name,
+            breed,
+            birth_date: parseDateBR(birthDate),
+            weight: parsedWeight,
+            plan_id: planId ?? 0,
+            clinic_id: planId
+                ? (data.plans.find(p => p.id === planId)?.clinic_id ?? 0)
+                : 0,
+            photo: speciesId === 1
+                ? "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400"
+                : speciesId === 2
+                ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400"
+                : "https://images.unsplash.com/photo-1452570053594-1b985d6ea890?w=400",
+        }
+
+        try {
+            if (pet) {
+                await updatePet(pet.id, petData)
+            } else {
+                await addPet(petData)
+            }
+            Alert.alert(
+                "Sucesso!",
+                pet ? "Pet atualizado." : "Pet cadastrado.",
+                [{ text: "OK", onPress: () => navigation.goBack() }]
+            )
+        } catch (error) {
+            Alert.alert("Ops!", "Não foi possível salvar.")
+        }
     }
 
     return (
@@ -92,6 +172,27 @@ export default function PetFormScreen() {
                         ))}
                     </View>
 
+                    <Text style={styles.sectionTitle}>PLANO DE SAÚDE (opcional)</Text>
+                    {data.plans.map(plan => {
+                        const clinic = data.clinics.find(c => c.id === plan.clinic_id)
+                        return (
+                            <TouchableOpacity
+                                key={plan.id}
+                                style={[
+                                    styles.planOption,
+                                    planId === plan.id && styles.planOptionActive
+                                ]}
+                                onPress={() => setPlanId(planId === plan.id ? null : plan.id)}
+                            >
+                                <Text style={styles.planOptionName}>{plan.name}</Text>
+                                <Text style={styles.planOptionClinic}>{clinic?.name}</Text>
+                                <Text style={styles.planOptionPrice}>
+                                    R$ {plan.price.toFixed(2).replace('.', ',')}/mês
+                                </Text>
+                            </TouchableOpacity>
+                        )
+                    })}
+
                 </ScrollView>
 
                 <View style={styles.buttonArea}>
@@ -122,6 +223,14 @@ const styles = StyleSheet.create({
     optionActive: { borderColor: '#2D6A4F', backgroundColor: '#D8F3DC' },
     optionText: { color: '#666', fontWeight: '500' },
     optionTextActive: { color: '#2D6A4F', fontWeight: 'bold' },
+    planOption: {
+        backgroundColor: '#fff', borderRadius: 8, padding: 12, marginTop: 10,
+        borderWidth: 1.5, borderColor: '#ddd',
+    },
+    planOptionActive: { borderColor: '#2D6A4F', backgroundColor: '#D8F3DC' },
+    planOptionName: { fontSize: 15, fontWeight: 'bold', color: '#1a1a1a' },
+    planOptionClinic: { fontSize: 12, color: '#666', marginTop: 2 },
+    planOptionPrice: { fontSize: 14, color: '#2D6A4F', fontWeight: 'bold', marginTop: 4 },
     buttonArea: { paddingHorizontal: 20, paddingVertical: 20, backgroundColor: 'white', height: 86 },
     button: { flex: 1, backgroundColor: '#2D6A4F', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
 })
