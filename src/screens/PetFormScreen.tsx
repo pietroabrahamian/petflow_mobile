@@ -11,9 +11,12 @@ import { s } from 'react-native-size-matters'
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation, useRoute } from "@react-navigation/native"
 import { useState, useEffect, useLayoutEffect } from "react"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 import data from "../data/petflow.json"
 import { addPet, updatePet } from "../services/petService"
+
+const DRAFT_KEY = "@petflow:pet_draft"
 
 export default function PetFormScreen() {
     const [name, setName] = useState("")
@@ -39,8 +42,40 @@ export default function PetFormScreen() {
             setWeight(String(pet.weight))
             setSpeciesId(pet.species_id)
             setPlanId(pet.plan_id)
+        } else {
+            loadDraft()
         }
     }, [])
+
+    useEffect(() => {
+        if (!pet) saveDraft()
+    }, [name, breed, birthDate, weight, speciesId, planId])
+
+    const loadDraft = async () => {
+        try {
+            const raw = await AsyncStorage.getItem(DRAFT_KEY)
+            if (raw) {
+                const draft = JSON.parse(raw)
+                setName(draft.name || "")
+                setBreed(draft.breed || "")
+                setBirthDate(draft.birthDate || "")
+                setWeight(draft.weight || "")
+                setSpeciesId(draft.speciesId ?? null)
+                setPlanId(draft.planId ?? null)
+            }
+        } catch (error) {
+            console.log("Erro ao carregar rascunho:", error)
+        }
+    }
+
+    const saveDraft = async () => {
+        try {
+            const draft = { name, breed, birthDate, weight, speciesId, planId }
+            await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+        } catch (error) {
+            console.log("Erro ao salvar rascunho:", error)
+        }
+    }
 
     const formatDateBR = (isoDate: string) => {
         const d = new Date(isoDate)
@@ -101,6 +136,7 @@ export default function PetFormScreen() {
                 await updatePet(pet.id, petData)
             } else {
                 await addPet(petData)
+                await AsyncStorage.removeItem(DRAFT_KEY)
             }
             Alert.alert(
                 "Sucesso!",
