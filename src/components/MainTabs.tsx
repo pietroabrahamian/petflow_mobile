@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 
 import PetListScreen from "../screens/PetListScreen"
+import ClinicListScreen from "../screens/ClinicListScreen"
 
 const Tab = createBottomTabNavigator()
 
@@ -39,9 +40,11 @@ export default function MainTabs() {
                 component={PetListScreen}
                 options={{ title: "Meus Pets", headerShown: false }}
             />
-            <Tab.Screen name="ClinicListScreen" options={{ title: "Clínicas" }}>
-                {() => <PlaceholderScreen title="Clínicas" />}
-            </Tab.Screen>
+            <Tab.Screen
+                name="ClinicListScreen"
+                component={ClinicListScreen}
+                options={{ title: "Clínicas", headerShown: false }}
+            />
             <Tab.Screen name="CouponListScreen" options={{ title: "Cupons" }}>
                 {() => <PlaceholderScreen title="Cupons" />}
             </Tab.Screen>
