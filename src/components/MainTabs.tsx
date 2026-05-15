@@ -4,6 +4,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 
 import PetListScreen from "../screens/PetListScreen"
 import ClinicListScreen from "../screens/ClinicListScreen"
+import CouponListScreen from "../screens/CouponListScreen"
 
 const Tab = createBottomTabNavigator()
 
@@ -45,9 +46,11 @@ export default function MainTabs() {
                 component={ClinicListScreen}
                 options={{ title: "Clínicas", headerShown: false }}
             />
-            <Tab.Screen name="CouponListScreen" options={{ title: "Cupons" }}>
-                {() => <PlaceholderScreen title="Cupons" />}
-            </Tab.Screen>
+            <Tab.Screen
+                name="CouponListScreen"
+                component={CouponListScreen}
+                options={{ title: "Cupons", headerShown: false }}
+            />
             <Tab.Screen name="SettingsScreen" options={{ title: "Ajustes" }}>
                 {() => <PlaceholderScreen title="Ajustes" />}
             </Tab.Screen>
