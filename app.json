@@ -25,6 +25,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O PetFlow precisa acessar suas fotos para você escolher uma imagem do seu pet."
+        }
+      ]
+    ]
   }
 }
