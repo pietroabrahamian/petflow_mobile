@@ -49,3 +49,12 @@ A estrutura do `petflow.json` espelha o schema do banco Oracle:
 | Plan | `/plans` | `PLAN` |
 | HealthEvent | `/health-events` | `HEALTH_EVENT` |
 | Coupon | `/coupons` | `COUPON` |
+
+## Sistema de Imagens
+
+Pets mockados utilizam imagens locais armazenadas em `assets/pets/`.
+Pets cadastrados pelo usuario armazenam URIs persistentes via expo-file-system,
+permitindo que as fotos sobrevivam ao reinicio do app.
+
+A resolucao da fonte da imagem fica centralizada em `src/utils/petImages.ts`,
+que detecta automaticamente se a foto eh uma chave local, URI da galeria, ou URL.
