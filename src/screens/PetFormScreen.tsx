@@ -18,6 +18,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 import data from "../data/petflow.json"
 import { addPet, updatePet } from "../services/petService"
 import { pickImageFromGallery } from "../services/imageService"
+import { getDefaultPhotoKey, getPetImageSource } from "../utils/petImages"
 
 const DRAFT_KEY = "@petflow:pet_draft"
 
@@ -139,12 +140,9 @@ export default function PetFormScreen() {
 
         const species = data.species.find(s => s.id === speciesId)
 
-        // Foto: usa a escolhida pelo usuário (galeria), ou fallback por espécie
-        const defaultPhoto = speciesId === 1
-            ? "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400"
-            : speciesId === 2
-            ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400"
-            : "https://images.unsplash.com/photo-1452570053594-1b985d6ea890?w=400"
+        // Foto: usa a escolhida pelo usuário (URI da galeria),
+        // ou cai no fallback por espécie (chave de imagem local)
+        const defaultPhoto = getDefaultPhotoKey(speciesId)
 
         const petData = {
             species_id: speciesId,
@@ -193,7 +191,7 @@ export default function PetFormScreen() {
                         {photoUri ? (
                             <>
                                 <Image
-                                    source={{ uri: photoUri }}
+                                    source={getPetImageSource(photoUri, speciesId ?? undefined)}
                                     style={styles.photoPreview}
                                 />
                                 <View style={styles.photoOverlay}>
