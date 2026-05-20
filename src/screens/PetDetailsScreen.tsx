@@ -12,7 +12,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 
 import data from "../data/petflow.json"
 import { Pet } from "../components/PetRow"
-
+import { getPetImageSource } from "../utils/petImages"
 
 export default function PetDetailsScreen() {
     const route = useRoute<any>()
@@ -32,7 +32,7 @@ export default function PetDetailsScreen() {
 
                     {/* Foto e nome */}
                     <View style={styles.photoSection}>
-                        <Image source={{ uri: pet.photo }} style={styles.photo} />
+                        <Image source={getPetImageSource(pet.photo, pet.species_id)} style={styles.photo} />
                         <Text style={styles.name}>{pet.name}</Text>
                         <Text style={styles.breed}>{pet.breed}</Text>
                     </View>
