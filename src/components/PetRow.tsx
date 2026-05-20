@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, Image } from "react-native"
+import { getPetImageSource } from "../utils/petImages"
 
 export type Pet = {
     id: number;
@@ -20,7 +21,7 @@ export default function PetRow({ pet }: { pet: Pet }) {
     return (
         <View style={styles.container}>
             <Image
-                source={{ uri: pet.photo }}
+                source={getPetImageSource(pet.photo, pet.species_id)}
                 style={styles.image}
             />
             <View style={styles.info}>
