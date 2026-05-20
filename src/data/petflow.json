@@ -79,7 +79,7 @@
       "weight": 32.5,
       "plan_id": 2,
       "clinic_id": 1,
-      "photo": "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400"
+      "photo": "thor"
     },
     {
       "id": 2,
@@ -92,7 +92,7 @@
       "weight": 27.8,
       "plan_id": 3,
       "clinic_id": 2,
-      "photo": "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?w=400"
+      "photo": "mel"
     },
     {
       "id": 3,
@@ -105,7 +105,7 @@
       "weight": 4.2,
       "plan_id": 1,
       "clinic_id": 1,
-      "photo": "https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400"
+      "photo": "mochi"
     }
   ],
   "health_events": [
