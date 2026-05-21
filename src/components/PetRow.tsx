@@ -15,6 +15,7 @@ export type Pet = {
     photo: string;
 }
 
+/** Linha de pet na lista principal. Mostra foto, nome, raca, idade e peso. */
 export default function PetRow({ pet }: { pet: Pet }) {
     const age = new Date().getFullYear() - new Date(pet.birth_date).getFullYear()
 
