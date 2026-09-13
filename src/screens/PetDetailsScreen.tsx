@@ -4,135 +4,266 @@ import {
     StyleSheet,
     Image,
     ScrollView,
-    TouchableOpacity
+    TouchableOpacity,
+    Alert,
+    ActivityIndicator,
 } from "react-native"
-import { useRoute, useNavigation } from "@react-navigation/native"
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context"
+import { useRoute, useNavigation, RouteProp } from "@react-navigation/native"
+import { NativeStackNavigationProp } from "@react-navigation/native-stack"
+import { SafeAreaView } from "react-native-safe-area-context"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
+import { useEffect, useState } from "react"
 
-import data from "../data/petflow.json"
-import { Pet } from "../components/PetRow"
 import { getPetImageSource } from "../utils/petImages"
+import { getPetPhoto } from "../utils/petPhotoStore"
+import { usePet, useDeletePet } from "../hooks/usePets"
+import { useHealthEvents, useDeleteHealthEvent } from "../hooks/useHealthEvents"
+import { useSubscriptions, useUpdateSubscriptionStatus } from "../hooks/useSubscriptions"
+import { useSpecies } from "../hooks/useReferenceData"
+import { getApiErrorMessage } from "../api/client"
+import { formatDateBR, getAgeInYears } from "../utils/date"
+import LoadingView from "../components/LoadingView"
+import ErrorView from "../components/ErrorView"
+import { AppStackParamList } from "../navigation/types"
+import { colors } from "../theme/colors"
+
+const STATUS_LABEL: Record<string, string> = {
+    AGENDADO: "Agendado",
+    REALIZADO: "Realizado",
+    CANCELADO: "Cancelado",
+}
 
 export default function PetDetailsScreen() {
-    const route = useRoute<any>()
-    const navigation = useNavigation<any>()
-    const pet: Pet = route.params?.pet
+    const route = useRoute<RouteProp<AppStackParamList, "PetDetailsScreen">>()
+    const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>()
+    const petId = route.params.pet.id
 
-    const plan = data.plans.find(p => p.id === pet.plan_id)
-    const clinic = data.clinics.find(c => c.id === pet.clinic_id)
-    const events = data.health_events.filter(e => e.pet_id === pet.id)
+    const { data: pet, isLoading, isError, error, refetch } = usePet(petId)
+    const { data: species } = useSpecies()
+    const { data: events, isLoading: eventsLoading } = useHealthEvents(petId)
+    const { data: subscriptions, isLoading: subscriptionsLoading } = useSubscriptions(petId)
+    const deletePet = useDeletePet()
+    const deleteEvent = useDeleteHealthEvent()
+    const updateSubscriptionStatus = useUpdateSubscriptionStatus()
 
-    const age = new Date().getFullYear() - new Date(pet.birth_date).getFullYear()
+    const [photoUri, setPhotoUri] = useState<string | null>(null)
+
+    useEffect(() => {
+        getPetPhoto(petId).then(setPhotoUri)
+    }, [petId])
+
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <LoadingView label="Carregando pet..." />
+            </SafeAreaView>
+        )
+    }
+
+    if (isError || !pet) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ErrorView message={getApiErrorMessage(error, "Pet não encontrado.")} onRetry={() => refetch()} />
+            </SafeAreaView>
+        )
+    }
+
+    const speciesName = species?.find(s => s.id === pet.speciesId)?.name ?? "—"
+    const age = getAgeInYears(pet.birthDate)
+    const activeSubscription = subscriptions?.find(s => s.status === "ATIVO")
+
+    const handleDeletePet = () => {
+        Alert.alert(
+            "Excluir pet",
+            `Tem certeza que deseja excluir ${pet.name}? Essa ação não pode ser desfeita.`,
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Excluir",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deletePet.mutateAsync(pet.id)
+                            navigation.goBack()
+                        } catch (err) {
+                            Alert.alert("Ops!", getApiErrorMessage(err, "Não foi possível excluir o pet."))
+                        }
+                    },
+                },
+            ]
+        )
+    }
+
+    const handleDeleteEvent = (eventId: number) => {
+        Alert.alert("Remover evento", "Deseja remover este evento de saúde?", [
+            { text: "Cancelar", style: "cancel" },
+            {
+                text: "Remover",
+                style: "destructive",
+                onPress: () => deleteEvent.mutate({ id: eventId, petId: pet.id }),
+            },
+        ])
+    }
+
+    const handleCancelSubscription = () => {
+        if (!activeSubscription) return
+        Alert.alert(
+            "Cancelar convênio",
+            `Deseja cancelar o convênio "${activeSubscription.planName}"?`,
+            [
+                { text: "Voltar", style: "cancel" },
+                {
+                    text: "Cancelar convênio",
+                    style: "destructive",
+                    onPress: () => {
+                        updateSubscriptionStatus.mutate({
+                            id: activeSubscription.id,
+                            petId: pet.id,
+                            status: "CANCELADO",
+                        })
+                    },
+                },
+            ]
+        )
+    }
 
     return (
-        <SafeAreaProvider>
-            <SafeAreaView style={styles.container}>
-                <ScrollView showsVerticalScrollIndicator={false}>
+        <SafeAreaView style={styles.container}>
+            <ScrollView showsVerticalScrollIndicator={false}>
 
-                    {/* Foto e nome */}
-                    <View style={styles.photoSection}>
-                        <Image source={getPetImageSource(pet.photo, pet.species_id)} style={styles.photo} />
-                        <Text style={styles.name}>{pet.name}</Text>
-                        <Text style={styles.breed}>{pet.breed}</Text>
+                <View style={styles.photoSection}>
+                    <Image source={getPetImageSource(photoUri, pet.speciesId)} style={styles.photo} />
+                    <Text style={styles.name}>{pet.name}</Text>
+                    {!!pet.breed && <Text style={styles.breed}>{pet.breed}</Text>}
+                </View>
+
+                <View style={styles.infoRow}>
+                    <View style={styles.infoCard}>
+                        <Text style={styles.infoLabel}>IDADE</Text>
+                        <Text style={styles.infoValue}>{age ?? "—"}</Text>
+                        <Text style={styles.infoUnit}>{age === 1 ? "ano" : "anos"}</Text>
                     </View>
-
-                    {/* Cards de informações */}
-                    <View style={styles.infoRow}>
-                        <View style={styles.infoCard}>
-                            <Text style={styles.infoLabel}>IDADE</Text>
-                            <Text style={styles.infoValue}>{age}</Text>
-                            <Text style={styles.infoUnit}>anos</Text>
-                        </View>
-                        <View style={styles.infoCard}>
-                            <Text style={styles.infoLabel}>PESO</Text>
-                            <Text style={styles.infoValue}>{pet.weight}</Text>
-                            <Text style={styles.infoUnit}>kg</Text>
-                        </View>
-                        <View style={styles.infoCard}>
-                            <Text style={styles.infoLabel}>ESPÉCIE</Text>
-                            <Text style={styles.infoValueSm}>{pet.species_name}</Text>
-                        </View>
+                    <View style={styles.infoCard}>
+                        <Text style={styles.infoLabel}>PESO</Text>
+                        <Text style={styles.infoValue}>{pet.weight ?? "—"}</Text>
+                        <Text style={styles.infoUnit}>kg</Text>
                     </View>
+                    <View style={styles.infoCard}>
+                        <Text style={styles.infoLabel}>ESPÉCIE</Text>
+                        <Text style={styles.infoValueSm}>{speciesName}</Text>
+                    </View>
+                </View>
 
-                    {/* Plano de saúde */}
-                    <Text style={styles.sectionTitle}>PLANO DE SAÚDE</Text>
-                    {plan && clinic ? (
-                        <View style={styles.planCard}>
-                            <View style={styles.planHeader}>
-                                <MaterialIcons name="verified" size={22} color="#2D6A4F" />
-                                <Text style={styles.planName}>{plan.name}</Text>
-                            </View>
-                            <Text style={styles.planClinic}>{clinic.name}</Text>
-                            <Text style={styles.planPrice}>
-                                R$ {plan.price.toFixed(2).replace('.', ',')}/mês
-                            </Text>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>HISTÓRICO DE SAÚDE</Text>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate("HealthEventFormScreen", { petId: pet.id })}
+                    >
+                        <Text style={styles.addEventText}>+ Novo evento</Text>
+                    </TouchableOpacity>
+                </View>
 
-                            <View style={styles.benefitsBox}>
-                                {plan.benefits.map((b, i) => (
-                                    <View key={i} style={styles.benefit}>
-                                        <MaterialIcons name="check-circle" size={14} color="#2D6A4F" />
-                                        <Text style={styles.benefitText}>{b}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        </View>
+                <View style={styles.eventsCard}>
+                    {eventsLoading ? (
+                        <ActivityIndicator color={colors.primary} style={{ paddingVertical: 12 }} />
+                    ) : !events || events.length === 0 ? (
+                        <Text style={styles.emptyText}>Nenhum evento registrado</Text>
                     ) : (
-                        <View style={styles.noPlanCard}>
-                            <Text style={styles.noPlanText}>Sem plano ativo</Text>
+                        events.map((evt, idx) => (
+                            <View key={evt.id}>
+                                <TouchableOpacity
+                                    style={styles.eventRow}
+                                    onPress={() => navigation.navigate("HealthEventFormScreen", { petId: pet.id, event: evt })}
+                                    onLongPress={() => handleDeleteEvent(evt.id)}
+                                >
+                                    <View style={[styles.eventDot, evt.status === "REALIZADO" && styles.eventDotDone]} />
+                                    <View style={styles.eventInfo}>
+                                        <Text style={styles.eventType}>{evt.description || "Evento de saúde"}</Text>
+                                        {!!evt.clinicName && <Text style={styles.eventClinic}>{evt.clinicName}</Text>}
+                                        <Text style={styles.eventStatus}>{STATUS_LABEL[evt.status] ?? evt.status}</Text>
+                                        <Text style={styles.eventDate}>
+                                            {formatDateBR(evt.eventDate)}
+                                        </Text>
+                                    </View>
+                                    <MaterialIcons name="chevron-right" size={20} color={colors.inactive} />
+                                </TouchableOpacity>
+                                {idx < events.length - 1 && <View style={styles.eventSep} />}
+                            </View>
+                        ))
+                    )}
+                </View>
+
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>CONVÊNIO MÉDICO</Text>
+                    {!activeSubscription && (
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate("SubscriptionFormScreen", { petId: pet.id })}
+                        >
+                            <Text style={styles.addEventText}>+ Vincular</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                <View style={styles.eventsCard}>
+                    {subscriptionsLoading ? (
+                        <ActivityIndicator color={colors.primary} style={{ paddingVertical: 12 }} />
+                    ) : !activeSubscription ? (
+                        <Text style={styles.emptyText}>Nenhum convênio vinculado</Text>
+                    ) : (
+                        <View>
+                            <View style={styles.eventRow}>
+                                <View style={[styles.eventDot, styles.eventDotDone]} />
+                                <View style={styles.eventInfo}>
+                                    <Text style={styles.eventType}>{activeSubscription.planName}</Text>
+                                    <Text style={styles.eventStatus}>Ativo</Text>
+                                    <Text style={styles.eventDate}>
+                                        Desde {formatDateBR(activeSubscription.startDate)}
+                                        {activeSubscription.endDate ? ` até ${formatDateBR(activeSubscription.endDate)}` : ""}
+                                    </Text>
+                                </View>
+                            </View>
+                            <TouchableOpacity onPress={handleCancelSubscription} disabled={updateSubscriptionStatus.isPending}>
+                                <Text style={styles.cancelSubscriptionText}>
+                                    {updateSubscriptionStatus.isPending ? "Cancelando..." : "Cancelar convênio"}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     )}
+                </View>
 
-                    {/* Eventos de saúde */}
-                    <Text style={styles.sectionTitle}>HISTÓRICO DE SAÚDE</Text>
-                    <View style={styles.eventsCard}>
-                        {events.length === 0 ? (
-                            <Text style={styles.emptyText}>Nenhum evento registrado</Text>
-                        ) : (
-                            events.map((evt, idx) => {
-                                const evtClinic = data.clinics.find(c => c.id === evt.clinic_id)
-                                return (
-                                    <View key={evt.id}>
-                                        <View style={styles.eventRow}>
-                                            <View style={styles.eventDot} />
-                                            <View style={styles.eventInfo}>
-                                                <Text style={styles.eventType}>{evt.event_type}</Text>
-                                                <Text style={styles.eventClinic}>{evtClinic?.name}</Text>
-                                                <Text style={styles.eventNotes}>{evt.notes}</Text>
-                                                <Text style={styles.eventDate}>
-                                                    {new Date(evt.event_date).toLocaleDateString('pt-BR')}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        {idx < events.length - 1 && <View style={styles.eventSep} />}
-                                    </View>
-                                )
-                            })
-                        )}
-                    </View>
+                <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => navigation.navigate("PetFormScreen", { pet })}
+                >
+                    <Text style={styles.editButtonText}>Editar Pet</Text>
+                </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => navigation.navigate("PetFormScreen", { pet })}
-                    >
-                        <Text style={styles.editButtonText}>Editar Pet</Text>
-                    </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={handleDeletePet}
+                    disabled={deletePet.isPending}
+                >
+                    {deletePet.isPending ? (
+                        <ActivityIndicator color={colors.danger} />
+                    ) : (
+                        <Text style={styles.deleteButtonText}>Excluir Pet</Text>
+                    )}
+                </TouchableOpacity>
 
-                </ScrollView>
-            </SafeAreaView>
-        </SafeAreaProvider>
+            </ScrollView>
+        </SafeAreaView>
     )
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#f2f2f2",
+        backgroundColor: colors.background,
     },
     photoSection: {
         alignItems: 'center',
         paddingVertical: 24,
-        backgroundColor: '#fff',
+        backgroundColor: colors.surface,
     },
     photo: {
         width: 140,
@@ -143,11 +274,11 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        color: colors.textPrimary,
     },
     breed: {
         fontSize: 14,
-        color: '#666',
+        color: colors.textSecondary,
         marginTop: 4,
     },
     infoRow: {
@@ -158,92 +289,50 @@ const styles = StyleSheet.create({
     },
     infoCard: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.surface,
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
     },
     infoLabel: {
         fontSize: 11,
-        color: '#999',
+        color: colors.textMuted,
         marginBottom: 4,
     },
     infoValue: {
         fontSize: 26,
         fontWeight: 'bold',
-        color: '#2D6A4F',
+        color: colors.primary,
     },
     infoValueSm: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#2D6A4F',
+        color: colors.primary,
         marginTop: 4,
     },
     infoUnit: {
         fontSize: 11,
-        color: '#999',
+        color: colors.textMuted,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 12,
+        marginBottom: 8,
+        marginHorizontal: 20,
     },
     sectionTitle: {
         fontSize: 12,
-        color: '#8d8d8d',
-        marginTop: 12,
-        marginBottom: 8,
-        marginHorizontal: 20,
+        color: colors.textLabel,
     },
-    planCard: {
-        backgroundColor: '#fff',
-        marginHorizontal: 20,
-        marginBottom: 8,
-        borderRadius: 12,
-        padding: 16,
-    },
-    planHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 6,
-    },
-    planName: {
-        fontSize: 17,
+    addEventText: {
+        fontSize: 12,
+        color: colors.primary,
         fontWeight: 'bold',
-        color: '#1a1a1a',
-    },
-    planClinic: {
-        fontSize: 14,
-        color: '#666',
-    },
-    planPrice: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#2D6A4F',
-        marginTop: 8,
-    },
-    benefitsBox: {
-        marginTop: 12,
-        gap: 6,
-    },
-    benefit: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    benefitText: {
-        fontSize: 13,
-        color: '#444',
-    },
-    noPlanCard: {
-        backgroundColor: '#fff',
-        marginHorizontal: 20,
-        borderRadius: 12,
-        padding: 20,
-        alignItems: 'center',
-    },
-    noPlanText: {
-        color: '#999',
-        fontSize: 14,
     },
     eventsCard: {
-        backgroundColor: '#fff',
+        backgroundColor: colors.surface,
         marginHorizontal: 20,
         borderRadius: 12,
         padding: 16,
@@ -251,15 +340,19 @@ const styles = StyleSheet.create({
     },
     eventRow: {
         flexDirection: 'row',
+        alignItems: 'flex-start',
         paddingVertical: 8,
     },
     eventDot: {
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: '#2D6A4F',
+        backgroundColor: colors.inactive,
         marginTop: 5,
         marginRight: 12,
+    },
+    eventDotDone: {
+        backgroundColor: colors.primary,
     },
     eventInfo: {
         flex: 1,
@@ -267,45 +360,66 @@ const styles = StyleSheet.create({
     eventType: {
         fontSize: 15,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        color: colors.textPrimary,
     },
     eventClinic: {
         fontSize: 12,
-        color: '#666',
+        color: colors.textSecondary,
         marginTop: 2,
     },
-    eventNotes: {
-        fontSize: 13,
-        color: '#444',
+    eventStatus: {
+        fontSize: 12,
+        color: colors.primary,
+        fontWeight: '600',
         marginTop: 4,
-        lineHeight: 18,
     },
     eventDate: {
         fontSize: 11,
-        color: '#999',
+        color: colors.textMuted,
         marginTop: 4,
     },
     eventSep: {
         height: 1,
-        backgroundColor: '#eee',
+        backgroundColor: colors.border,
         marginVertical: 4,
     },
     emptyText: {
         textAlign: 'center',
-        color: '#999',
+        color: colors.textMuted,
         fontSize: 14,
         paddingVertical: 12,
     },
+    cancelSubscriptionText: {
+        color: colors.danger,
+        fontSize: 13,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginTop: 12,
+    },
     editButton: {
-        backgroundColor: '#2D6A4F',
+        backgroundColor: colors.primary,
+        marginHorizontal: 20,
+        marginBottom: 12,
+        borderRadius: 8,
+        paddingVertical: 14,
+        alignItems: 'center',
+    },
+    editButtonText: {
+        color: colors.surface,
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    deleteButton: {
+        borderColor: colors.danger,
+        borderWidth: 1.5,
         marginHorizontal: 20,
         marginBottom: 30,
         borderRadius: 8,
         paddingVertical: 14,
         alignItems: 'center',
     },
-    editButtonText: {
-        color: '#fff',
+    deleteButtonText: {
+        color: colors.danger,
         fontSize: 16,
         fontWeight: 'bold',
     },

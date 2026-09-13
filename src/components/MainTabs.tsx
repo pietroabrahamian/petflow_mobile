@@ -1,10 +1,11 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 import PetListScreen from "../screens/PetListScreen"
 import ClinicListScreen from "../screens/ClinicListScreen"
-import CouponListScreen from "../screens/CouponListScreen"
+import RewardsScreen from "../screens/RewardsScreen"
 import SettingsScreen from "../screens/SettingsScreen"
 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
+import { colors } from "../theme/colors"
 
 const Tab = createBottomTabNavigator()
 
@@ -12,9 +13,10 @@ export default function MainTabs() {
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
-                tabBarActiveTintColor: "#2D6A4F",
-                tabBarInactiveTintColor: "#999",
+                tabBarActiveTintColor: colors.primary,
+                tabBarInactiveTintColor: colors.textMuted,
                 tabBarLabelStyle: { fontSize: 12 },
+                headerShown: false,
                 tabBarIcon: ({ color, size }) => {
                     let iconName: any
                     switch (route.name) {
@@ -24,7 +26,7 @@ export default function MainTabs() {
                         case "ClinicListScreen":
                             iconName = "local-hospital"
                             break
-                        case "CouponListScreen":
+                        case "RewardsScreen":
                             iconName = "local-offer"
                             break
                         case "SettingsScreen":
@@ -40,26 +42,17 @@ export default function MainTabs() {
             <Tab.Screen
                 name="PetListScreen"
                 component={PetListScreen}
-                options={{
-                    title: "Meus Pets",
-                    headerShown: false,
-                }}
+                options={{ title: "Meus Pets" }}
             />
             <Tab.Screen
                 name="ClinicListScreen"
                 component={ClinicListScreen}
-                options={{
-                    title: "Clínicas",
-                    headerShown: false,
-                }}
+                options={{ title: "Clínicas" }}
             />
             <Tab.Screen
-                name="CouponListScreen"
-                component={CouponListScreen}
-                options={{
-                    title: "Cupons",
-                    headerShown: false,
-                }}
+                name="RewardsScreen"
+                component={RewardsScreen}
+                options={{ title: "Recompensas" }}
             />
             <Tab.Screen
                 name="SettingsScreen"

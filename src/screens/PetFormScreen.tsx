@@ -6,19 +6,28 @@ import {
     TouchableOpacity,
     ScrollView,
     Alert,
-    Image
+    Image,
+    ActivityIndicator,
 } from "react-native"
 import { s } from 'react-native-size-matters'
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context"
-import { useRoute, useNavigation } from "@react-navigation/native"
+import { SafeAreaView } from "react-native-safe-area-context"
+import { useRoute, useNavigation, RouteProp } from "@react-navigation/native"
+import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { useState, useEffect, useLayoutEffect } from "react"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 
-import data from "../data/petflow.json"
-import { addPet, updatePet } from "../services/petService"
+import { useCreatePet, useUpdatePet } from "../hooks/usePets"
+import { useSpecies } from "../hooks/useReferenceData"
+import InlineRetry from "../components/InlineRetry"
 import { pickImageFromGallery } from "../services/imageService"
-import { getDefaultPhotoKey, getPetImageSource } from "../utils/petImages"
+import { getPetImageSource } from "../utils/petImages"
+import { getPetPhoto, setPetPhoto } from "../utils/petPhotoStore"
+import { getApiErrorMessage } from "../api/client"
+import { formatDateBR, parseDateBR, isValidDateBR } from "../utils/date"
+import { useAuth } from "../contexts/AuthContext"
+import { AppStackParamList } from "../navigation/types"
+import { colors } from "../theme/colors"
 
 const DRAFT_KEY = "@petflow:pet_draft"
 
@@ -28,12 +37,17 @@ export default function PetFormScreen() {
     const [birthDate, setBirthDate] = useState("")
     const [weight, setWeight] = useState("")
     const [speciesId, setSpeciesId] = useState<number | null>(null)
-    const [planId, setPlanId] = useState<number | null>(null)
     const [photoUri, setPhotoUri] = useState<string | null>(null)
 
-    const route = useRoute<any>()
-    const navigation = useNavigation<any>()
+    const route = useRoute<RouteProp<AppStackParamList, "PetFormScreen">>()
+    const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>()
     const pet = route.params?.pet ?? null
+
+    const { user } = useAuth()
+    const { data: species, isLoading: speciesLoading, isError: speciesError, refetch: refetchSpecies } = useSpecies()
+    const createPet = useCreatePet()
+    const updatePet = useUpdatePet()
+    const isSaving = createPet.isPending || updatePet.isPending
 
     useLayoutEffect(() => {
         navigation.setOptions({ title: pet == null ? "Cadastrar Pet" : "Editar Pet" })
@@ -42,12 +56,11 @@ export default function PetFormScreen() {
     useEffect(() => {
         if (pet) {
             setName(pet.name)
-            setBreed(pet.breed)
-            setBirthDate(formatDateBR(pet.birth_date))
-            setWeight(String(pet.weight))
-            setSpeciesId(pet.species_id)
-            setPlanId(pet.plan_id)
-            setPhotoUri(pet.photo || null)
+            setBreed(pet.breed ?? "")
+            setBirthDate(pet.birthDate ? formatDateBR(pet.birthDate) : "")
+            setWeight(pet.weight != null ? String(pet.weight) : "")
+            setSpeciesId(pet.speciesId)
+            getPetPhoto(pet.id).then(setPhotoUri)
         } else {
             loadDraft()
         }
@@ -55,7 +68,7 @@ export default function PetFormScreen() {
 
     useEffect(() => {
         if (!pet) saveDraft()
-    }, [name, breed, birthDate, weight, speciesId, planId, photoUri])
+    }, [name, breed, birthDate, weight, speciesId])
 
     const loadDraft = async () => {
         try {
@@ -67,8 +80,6 @@ export default function PetFormScreen() {
                 setBirthDate(draft.birthDate || "")
                 setWeight(draft.weight || "")
                 setSpeciesId(draft.speciesId ?? null)
-                setPlanId(draft.planId ?? null)
-                setPhotoUri(draft.photoUri ?? null)
             }
         } catch (error) {
             console.log("Erro ao carregar rascunho:", error)
@@ -77,7 +88,7 @@ export default function PetFormScreen() {
 
     const saveDraft = async () => {
         try {
-            const draft = { name, breed, birthDate, weight, speciesId, planId, photoUri }
+            const draft = { name, breed, birthDate, weight, speciesId }
             await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
         } catch (error) {
             console.log("Erro ao salvar rascunho:", error)
@@ -90,7 +101,6 @@ export default function PetFormScreen() {
             if (uri) {
                 setPhotoUri(uri)
             } else {
-                // Usuário cancelou ou negou permissão
                 Alert.alert(
                     "Permissão necessária",
                     "Para escolher uma foto, permita o acesso à galeria nas configurações."
@@ -102,68 +112,52 @@ export default function PetFormScreen() {
         }
     }
 
-    const formatDateBR = (isoDate: string) => {
-        const d = new Date(isoDate)
-        const dd = String(d.getDate()).padStart(2, '0')
-        const mm = String(d.getMonth() + 1).padStart(2, '0')
-        return `${dd}/${mm}/${d.getFullYear()}`
-    }
-
-    // DD/MM/AAAA → AAAA-MM-DD (formato ISO do banco)
-    const parseDateBR = (dateBR: string): string => {
-        const [dd, mm, yyyy] = dateBR.split('/')
-        return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`
-    }
-
     const handleSave = async () => {
-        if (name.length === 0) {
+        if (!user) return
+
+        if (name.trim().length === 0) {
             Alert.alert("Campo inválido", "Digite o nome do pet")
             return
         }
-        if (breed.length === 0) {
-            Alert.alert("Campo inválido", "Digite a raça do pet")
+        if (birthDate.length > 0 && !isValidDateBR(birthDate)) {
+            Alert.alert("Data inválida", "Digite uma data de nascimento válida no formato DD/MM/AAAA")
             return
         }
-        if (birthDate.length < 10 || !birthDate.includes('/')) {
-            Alert.alert("Campo inválido", "Digite a data de nascimento no formato DD/MM/AAAA")
-            return
-        }
-        const parsedWeight = parseFloat(weight.replace(",", "."))
-        if (Number.isNaN(parsedWeight)) {
-            Alert.alert("Campo inválido", "Informe um peso válido (ex.: 4,5)")
-            return
+        let parsedWeight: number | undefined
+        if (weight.trim().length > 0) {
+            parsedWeight = parseFloat(weight.replace(",", "."))
+            if (Number.isNaN(parsedWeight)) {
+                Alert.alert("Campo inválido", "Informe um peso válido (ex.: 4,5)")
+                return
+            }
         }
         if (speciesId == null) {
             Alert.alert("Campo inválido", "Selecione a espécie do pet")
             return
         }
 
-        const species = data.species.find(s => s.id === speciesId)
-
-        // Foto: usa a escolhida pelo usuário (URI da galeria),
-        // ou cai no fallback por espécie (chave de imagem local)
-        const defaultPhoto = getDefaultPhotoKey(speciesId)
-
-        const petData = {
-            species_id: speciesId,
-            species_name: species?.name || "",
-            name,
-            breed,
-            birth_date: parseDateBR(birthDate),
+        const payload = {
+            name: name.trim(),
+            breed: breed.trim() || undefined,
+            birthDate: birthDate.length > 0 ? parseDateBR(birthDate) : undefined,
             weight: parsedWeight,
-            plan_id: planId ?? 0,
-            clinic_id: planId
-                ? (data.plans.find(p => p.id === planId)?.clinic_id ?? 0)
-                : 0,
-            photo: photoUri || defaultPhoto,
+            tutorId: user.id,
+            speciesId,
         }
 
         try {
+            let savedId: number
             if (pet) {
-                await updatePet(pet.id, petData)
+                const updated = await updatePet.mutateAsync({ id: pet.id, payload })
+                savedId = updated.id
             } else {
-                await addPet(petData)
+                const created = await createPet.mutateAsync(payload)
+                savedId = created.id
                 await AsyncStorage.removeItem(DRAFT_KEY)
+            }
+
+            if (photoUri) {
+                await setPetPhoto(savedId, photoUri)
             }
 
             Alert.alert(
@@ -172,78 +166,81 @@ export default function PetFormScreen() {
                 [{ text: "OK", onPress: () => navigation.goBack() }]
             )
         } catch (error) {
-            console.log(error)
-            Alert.alert("Ops!", "Não foi possível salvar o pet.")
+            Alert.alert("Ops!", getApiErrorMessage(error, "Não foi possível salvar o pet."))
         }
     }
 
     return (
-        <SafeAreaProvider>
-            <SafeAreaView style={styles.container}>
-                <ScrollView style={{ padding: 20, backgroundColor: "#f2f2f2" }}>
+        <SafeAreaView style={styles.container}>
+            <ScrollView style={{ padding: 20, backgroundColor: colors.background }}>
 
-                    <Text style={styles.sectionTitle}>FOTO DO PET</Text>
-                    <TouchableOpacity
-                        style={styles.photoPicker}
-                        onPress={handlePickPhoto}
-                        activeOpacity={0.7}
-                    >
-                        {photoUri ? (
-                            <>
-                                <Image
-                                    source={getPetImageSource(photoUri, speciesId ?? undefined)}
-                                    style={styles.photoPreview}
-                                />
-                                <View style={styles.photoOverlay}>
-                                    <MaterialIcons name="edit" size={18} color="#fff" />
-                                    <Text style={styles.photoOverlayText}>Trocar</Text>
-                                </View>
-                            </>
-                        ) : (
-                            <View style={styles.photoPlaceholder}>
-                                <MaterialIcons name="add-a-photo" size={32} color="#2D6A4F" />
-                                <Text style={styles.photoPlaceholderText}>Escolher foto da galeria</Text>
+                <Text style={styles.sectionTitle}>FOTO DO PET</Text>
+                <TouchableOpacity
+                    style={styles.photoPicker}
+                    onPress={handlePickPhoto}
+                    activeOpacity={0.7}
+                >
+                    {photoUri ? (
+                        <>
+                            <Image
+                                source={getPetImageSource(photoUri, speciesId ?? undefined)}
+                                style={styles.photoPreview}
+                            />
+                            <View style={styles.photoOverlay}>
+                                <MaterialIcons name="edit" size={18} color={colors.surface} />
+                                <Text style={styles.photoOverlayText}>Trocar</Text>
                             </View>
-                        )}
-                    </TouchableOpacity>
+                        </>
+                    ) : (
+                        <View style={styles.photoPlaceholder}>
+                            <MaterialIcons name="add-a-photo" size={32} color={colors.primary} />
+                            <Text style={styles.photoPlaceholderText}>Escolher foto da galeria</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
 
-                    <Text style={styles.sectionTitle}>NOME</Text>
+                <Text style={styles.sectionTitle}>NOME</Text>
+                <TextInput
+                    style={styles.input}
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Ex: Thor"
+                />
+
+                <Text style={styles.sectionTitle}>RAÇA</Text>
+                <TextInput
+                    style={styles.input}
+                    value={breed}
+                    onChangeText={setBreed}
+                    placeholder="Ex: Labrador Retriever"
+                />
+
+                <Text style={styles.sectionTitle}>NASCIMENTO E PESO</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
                     <TextInput
                         style={styles.input}
-                        value={name}
-                        onChangeText={setName}
-                        placeholder="Ex: Thor"
+                        value={birthDate}
+                        onChangeText={setBirthDate}
+                        placeholder="DD/MM/AAAA"
+                        keyboardType="numeric"
                     />
-
-                    <Text style={styles.sectionTitle}>RAÇA</Text>
                     <TextInput
                         style={styles.input}
-                        value={breed}
-                        onChangeText={setBreed}
-                        placeholder="Ex: Labrador Retriever"
+                        value={weight}
+                        onChangeText={setWeight}
+                        placeholder="Peso (kg)"
+                        keyboardType="decimal-pad"
                     />
+                </View>
 
-                    <Text style={styles.sectionTitle}>NASCIMENTO E PESO</Text>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <TextInput
-                            style={styles.input}
-                            value={birthDate}
-                            onChangeText={setBirthDate}
-                            placeholder="DD/MM/AAAA"
-                            keyboardType="numeric"
-                        />
-                        <TextInput
-                            style={styles.input}
-                            value={weight}
-                            onChangeText={setWeight}
-                            placeholder="Peso (kg)"
-                            keyboardType="decimal-pad"
-                        />
-                    </View>
-
-                    <Text style={styles.sectionTitle}>ESPÉCIE</Text>
+                <Text style={styles.sectionTitle}>ESPÉCIE</Text>
+                {speciesLoading ? (
+                    <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
+                ) : speciesError ? (
+                    <InlineRetry message="Não foi possível carregar as espécies." onRetry={() => refetchSpecies()} />
+                ) : (
                     <View style={styles.optionsRow}>
-                        {data.species.map(sp => (
+                        {species?.map(sp => (
                             <TouchableOpacity
                                 key={sp.id}
                                 style={[
@@ -261,50 +258,33 @@ export default function PetFormScreen() {
                             </TouchableOpacity>
                         ))}
                     </View>
+                )}
 
-                    <Text style={styles.sectionTitle}>PLANO DE SAÚDE (opcional)</Text>
-                    {data.plans.map(plan => {
-                        const clinic = data.clinics.find(c => c.id === plan.clinic_id)
-                        return (
-                            <TouchableOpacity
-                                key={plan.id}
-                                style={[
-                                    styles.planOption,
-                                    planId === plan.id && styles.planOptionActive
-                                ]}
-                                onPress={() => setPlanId(planId === plan.id ? null : plan.id)}
-                            >
-                                <Text style={styles.planOptionName}>{plan.name}</Text>
-                                <Text style={styles.planOptionClinic}>{clinic?.name}</Text>
-                                <Text style={styles.planOptionPrice}>
-                                    R$ {plan.price.toFixed(2).replace('.', ',')}/mês
-                                </Text>
-                            </TouchableOpacity>
-                        )
-                    })}
+            </ScrollView>
 
-                </ScrollView>
-
-                <View style={styles.buttonArea}>
-                    <TouchableOpacity onPress={handleSave} style={styles.button}>
+            <View style={styles.buttonArea}>
+                <TouchableOpacity onPress={handleSave} style={styles.button} disabled={isSaving}>
+                    {isSaving ? (
+                        <ActivityIndicator color={colors.surface} />
+                    ) : (
                         <Text style={{ color: 'white', fontSize: 18 }}>
                             {pet == null ? "Cadastrar Pet" : "Salvar Alterações"}
                         </Text>
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
-        </SafeAreaProvider>
+                    )}
+                </TouchableOpacity>
+            </View>
+        </SafeAreaView>
     )
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#fff",
+        backgroundColor: colors.surface,
     },
     sectionTitle: {
         fontSize: s(12),
-        color: '#3d3d3d',
+        color: colors.formLabel,
         marginTop: 4,
     },
     input: {
@@ -321,56 +301,31 @@ const styles = StyleSheet.create({
         gap: 10,
         marginTop: 10,
         marginBottom: 20,
+        flexWrap: 'wrap',
     },
     option: {
-        flex: 1,
+        flexGrow: 1,
+        minWidth: 80,
         height: 42,
         borderRadius: 8,
-        backgroundColor: '#fff',
+        backgroundColor: colors.surface,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1.5,
-        borderColor: '#ddd',
+        borderColor: colors.borderStrong,
+        paddingHorizontal: 10,
     },
     optionActive: {
-        borderColor: '#2D6A4F',
-        backgroundColor: '#D8F3DC',
+        borderColor: colors.primary,
+        backgroundColor: colors.primaryLight,
     },
     optionText: {
-        color: '#666',
+        color: colors.textSecondary,
         fontWeight: '500',
     },
     optionTextActive: {
-        color: '#2D6A4F',
+        color: colors.primary,
         fontWeight: 'bold',
-    },
-    planOption: {
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 12,
-        marginTop: 10,
-        borderWidth: 1.5,
-        borderColor: '#ddd',
-    },
-    planOptionActive: {
-        borderColor: '#2D6A4F',
-        backgroundColor: '#D8F3DC',
-    },
-    planOptionName: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: '#1a1a1a',
-    },
-    planOptionClinic: {
-        fontSize: 12,
-        color: '#666',
-        marginTop: 2,
-    },
-    planOptionPrice: {
-        fontSize: 14,
-        color: '#2D6A4F',
-        fontWeight: 'bold',
-        marginTop: 4,
     },
     buttonArea: {
         paddingHorizontal: 20,
@@ -380,7 +335,7 @@ const styles = StyleSheet.create({
     },
     button: {
         flex: 1,
-        backgroundColor: '#2D6A4F',
+        backgroundColor: colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 8,
@@ -390,12 +345,12 @@ const styles = StyleSheet.create({
         width: 140,
         height: 140,
         borderRadius: 70,
-        backgroundColor: '#fff',
+        backgroundColor: colors.surface,
         marginTop: 10,
         marginBottom: 20,
         overflow: 'hidden',
         borderWidth: 2,
-        borderColor: '#D8F3DC',
+        borderColor: colors.primaryLight,
         borderStyle: 'dashed',
     },
     photoPreview: {
@@ -415,7 +370,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     photoOverlayText: {
-        color: '#fff',
+        color: colors.surface,
         fontSize: 12,
         fontWeight: 'bold',
     },
@@ -426,7 +381,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
     },
     photoPlaceholderText: {
-        color: '#2D6A4F',
+        color: colors.primary,
         fontSize: 11,
         fontWeight: '600',
         marginTop: 6,

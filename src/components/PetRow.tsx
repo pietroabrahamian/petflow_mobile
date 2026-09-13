@@ -1,34 +1,36 @@
 import { StyleSheet, Text, View, Image } from "react-native"
+import { Pet } from "../types/api"
 import { getPetImageSource } from "../utils/petImages"
+import { formatAge } from "../utils/date"
+import { colors } from "../theme/colors"
 
-export type Pet = {
-    id: number;
-    tutor_id: number;
-    species_id: number;
-    species_name: string;
-    name: string;
-    breed: string;
-    birth_date: string;
-    weight: number;
-    plan_id: number;
-    clinic_id: number;
-    photo: string;
-}
+export default function PetRow({
+    pet,
+    photoUri,
+    speciesName,
+}: {
+    pet: Pet
+    photoUri?: string | null
+    speciesName?: string
+}) {
+    const age = formatAge(pet.birthDate)
 
-/** Linha de pet na lista principal. Mostra foto, nome, raca, idade e peso. */
-export default function PetRow({ pet }: { pet: Pet }) {
-    const age = new Date().getFullYear() - new Date(pet.birth_date).getFullYear()
+    const metaParts = [
+        speciesName,
+        age,
+        pet.weight != null ? `${pet.weight}kg` : null,
+    ].filter(Boolean)
 
     return (
         <View style={styles.container}>
             <Image
-                source={getPetImageSource(pet.photo, pet.species_id)}
+                source={getPetImageSource(photoUri, pet.speciesId)}
                 style={styles.image}
             />
             <View style={styles.info}>
                 <Text style={styles.name}>{pet.name}</Text>
-                <Text style={styles.breed}>{pet.breed}</Text>
-                <Text style={styles.meta}>{pet.species_name} • {age} anos • {pet.weight}kg</Text>
+                {!!pet.breed && <Text style={styles.breed}>{pet.breed}</Text>}
+                <Text style={styles.meta}>{metaParts.join(" • ")}</Text>
             </View>
         </View>
     )
@@ -54,16 +56,16 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 17,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        color: colors.textPrimary,
     },
     breed: {
         fontSize: 14,
-        color: '#666',
+        color: colors.textSecondary,
         marginTop: 2,
     },
     meta: {
         fontSize: 12,
-        color: '#999',
+        color: colors.textMuted,
         marginTop: 4,
     },
 })
