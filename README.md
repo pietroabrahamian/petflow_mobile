@@ -16,8 +16,6 @@ Nesta Sprint 3, o app deixou de usar dados mockados (`petflow.json`) e passou a 
 | Lucca Ramos Mussumecci | 562027 |
 
 ## 🎥 Vídeo de apresentação
-
-<!-- TODO: substituir pelo link do vídeo no YouTube (máx. 5 min) -->
 [Assistir no YouTube](COLE_AQUI_O_LINK_DO_YOUTUBE)
 
 ---

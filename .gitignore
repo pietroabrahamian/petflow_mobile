@@ -11,6 +11,5 @@ npm-debug.*
 web-build/
 .DS_Store
 .env*
-!.env.example
 .vscode/
 .idea/
