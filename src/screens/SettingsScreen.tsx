@@ -9,49 +9,41 @@ import {
     ActivityIndicator,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useState, useEffect } from "react"
 import { s } from "react-native-size-matters"
-import AsyncStorage from "@react-native-async-storage/async-storage"
+import { useNavigation } from "@react-navigation/native"
+import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 
 import { useAuth } from "../contexts/AuthContext"
 import { useMyRedeems } from "../hooks/useRedeems"
-import { colors } from "../theme/colors"
+import { usePreferences } from "../hooks/usePreferences"
+import { AppStackParamList } from "../navigation/types"
+import { ThemeMode } from "../services/preferencesService"
+import { signOut } from "../services/authService"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
+
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: "brightness-auto" | "light-mode" | "dark-mode" }[] = [
+    { value: "system", label: "Sistema", icon: "brightness-auto" },
+    { value: "light", label: "Claro", icon: "light-mode" },
+    { value: "dark", label: "Escuro", icon: "dark-mode" },
+]
 
 export default function SettingsScreen() {
-    const { user, logout } = useAuth()
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
+    const { user } = useAuth()
     const { data: redeems, isLoading: redeemsLoading } = useMyRedeems()
 
-    const [notifications, setNotifications] = useState<boolean>(true)
-    const [healthAlerts, setHealthAlerts] = useState<boolean>(true)
-
-    useEffect(() => {
-        loadPreferences()
-    }, [])
-
-    const loadPreferences = async () => {
-        try {
-            const storedNotif = await AsyncStorage.getItem("notifications")
-            const storedAlerts = await AsyncStorage.getItem("healthAlerts")
-            if (storedNotif !== null) setNotifications(storedNotif === "true")
-            if (storedAlerts !== null) setHealthAlerts(storedAlerts === "true")
-        } catch (error) {
-            console.log("Erro ao carregar ajustes:", error)
-        }
-    }
-
-    useEffect(() => {
-        AsyncStorage.setItem("notifications", String(notifications))
-    }, [notifications])
-
-    useEffect(() => {
-        AsyncStorage.setItem("healthAlerts", String(healthAlerts))
-    }, [healthAlerts])
+    const { mode, setMode } = useTheme()
+    const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>()
+    const { preferences, setRewardAlerts, setHealthAlerts } = usePreferences()
 
     const handleLogout = () => {
         Alert.alert("Sair", "Deseja encerrar a sessão?", [
             { text: "Cancelar", style: "cancel" },
-            { text: "Sair", style: "destructive", onPress: () => logout() },
+            { text: "Sair", style: "destructive", onPress: () => signOut() },
         ])
     }
 
@@ -71,31 +63,51 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
+                <Text style={styles.sectionTitle}>APARÊNCIA</Text>
+                <View style={styles.themeRow}>
+                    {THEME_OPTIONS.map((option) => (
+                        <TouchableOpacity
+                            key={option.value}
+                            style={[styles.themeOption, mode === option.value && styles.themeOptionActive]}
+                            onPress={() => setMode(option.value)}
+                        >
+                            <MaterialIcons
+                                name={option.icon}
+                                size={18}
+                                color={mode === option.value ? colors.onPrimary : colors.textSecondary}
+                            />
+                            <Text style={[styles.themeOptionText, mode === option.value && styles.themeOptionTextActive]}>
+                                {option.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
                 <Text style={styles.sectionTitle}>NOTIFICAÇÕES</Text>
 
                 <View style={styles.switchRow}>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.switchLabel}>Notificações gerais</Text>
-                        <Text style={styles.switchHelp}>Receber lembretes do app</Text>
+                        <Text style={styles.switchLabel}>Pontos e cupons</Text>
+                        <Text style={styles.switchHelp}>Avisar quando ganhar pontos ou liberar um cupom</Text>
                     </View>
                     <Switch
-                        value={notifications}
-                        onValueChange={setNotifications}
-                        trackColor={{ false: "#bbb", true: colors.primary }}
-                        thumbColor={'white'}
+                        value={preferences?.rewardAlerts ?? true}
+                        onValueChange={setRewardAlerts}
+                        trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                        thumbColor={colors.onPrimary}
                     />
                 </View>
 
                 <View style={styles.switchRow}>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.switchLabel}>Alertas de saúde</Text>
-                        <Text style={styles.switchHelp}>Lembretes de vacinas e consultas</Text>
+                        <Text style={styles.switchHelp}>Lembrete do reforço anual das vacinas</Text>
                     </View>
                     <Switch
-                        value={healthAlerts}
+                        value={preferences?.healthAlerts ?? true}
                         onValueChange={setHealthAlerts}
-                        trackColor={{ false: "#bbb", true: colors.primary }}
-                        thumbColor={'white'}
+                        trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                        thumbColor={colors.onPrimary}
                     />
                 </View>
 
@@ -129,17 +141,17 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
 
                 <Text style={styles.sectionTitle}>SOBRE</Text>
-                <View style={styles.aboutCard}>
-                    <Text style={styles.aboutLine}>PetFlow Mobile v1.0.0</Text>
-                    <Text style={styles.aboutLine}>Challenge FIAP 2026 — 2TDSPX</Text>
-                    <Text style={styles.aboutLine}>Equipe: Lucas, Pietro, Pedro, Lucca</Text>
-                </View>
+                <TouchableOpacity style={styles.aboutCard} onPress={() => navigation.navigate("AboutScreen")}>
+                    <MaterialIcons name="info-outline" size={20} color={colors.primary} />
+                    <Text style={[styles.aboutLine, { flex: 1 }]}>Sobre o App</Text>
+                    <MaterialIcons name="chevron-right" size={22} color={colors.textMuted} />
+                </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
@@ -256,6 +268,34 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         padding: 14,
         marginBottom: 30,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+    themeRow: {
+        flexDirection: "row",
+        gap: 8,
+    },
+    themeOption: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        paddingVertical: 10,
+        borderRadius: 8,
+        backgroundColor: colors.surface,
+    },
+    themeOptionActive: {
+        backgroundColor: colors.primary,
+    },
+    themeOptionText: {
+        fontSize: 13,
+        color: colors.textSecondary,
+    },
+    themeOptionTextActive: {
+        color: colors.onPrimary,
+        fontWeight: "bold",
     },
     aboutLine: {
         fontSize: 13,

@@ -1,3 +1,4 @@
+import { NavigatorScreenParams } from "@react-navigation/native"
 import { Pet } from "../types/api"
 
 export type AuthStackParamList = {
@@ -13,9 +14,10 @@ export type MainTabsParamList = {
 }
 
 export type AppStackParamList = {
-    MainTabs: undefined
+    MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined
     PetDetailsScreen: { pet: Pet }
     PetFormScreen: { pet?: Pet } | undefined
     HealthEventFormScreen: { petId: number; event?: import("../types/api").HealthEvent }
     SubscriptionFormScreen: { petId: number }
+    AboutScreen: undefined
 }
