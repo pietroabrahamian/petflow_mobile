@@ -1,61 +1,47 @@
 import axios, { AxiosError } from "axios"
-import * as SecureStore from "expo-secure-store"
 import { ApiErrorResponse } from "../types/api"
-
-const TOKEN_KEY = "petflow_token"
-
-const AZURE_API_URL = "http://petflow-api-dns.brazilsouth.azurecontainer.io:8080"
-
-function resolveBaseUrl(): string {
-    return process.env.EXPO_PUBLIC_API_URL || AZURE_API_URL
-}
-
-export const API_BASE_URL = resolveBaseUrl()
+import { API_BASE_URL, API_TIMEOUT_MS } from "./config"
+import { getToken, getValidToken, SessionExpiredError } from "../services/tokenService"
+import { endSession } from "../services/sessionService"
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 15000,
+    timeout: API_TIMEOUT_MS,
     headers: {
         "Content-Type": "application/json",
     },
 })
 
 api.interceptors.request.use(async (config) => {
-    const token = await SecureStore.getItemAsync(TOKEN_KEY)
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-})
+    // Login e cadastro são públicos: sem token salvo, a requisição segue sem header
+    if (!(await getToken())) return config
 
-let onUnauthorized: (() => void) | null = null
-export function setUnauthorizedHandler(handler: () => void) {
-    onUnauthorized = handler
-}
+    try {
+        const token = await getValidToken()
+        config.headers.Authorization = `Bearer ${token}`
+        return config
+    } catch (error) {
+        if (error instanceof SessionExpiredError) {
+            await endSession("expired")
+        }
+        throw error
+    }
+})
 
 api.interceptors.response.use(
     (response) => response,
-    (error) => {
-        if (axios.isAxiosError(error) && error.response?.status === 401) {
-            onUnauthorized?.()
+    async (error) => {
+        // 401 numa requisição autenticada = token recusado pela API (expirado ou revogado)
+        if (axios.isAxiosError(error) && error.response?.status === 401 && error.config?.headers?.Authorization) {
+            await endSession("expired")
         }
         return Promise.reject(error)
     }
 )
 
-export async function saveToken(token: string): Promise<void> {
-    await SecureStore.setItemAsync(TOKEN_KEY, token)
-}
-
-export async function getToken(): Promise<string | null> {
-    return SecureStore.getItemAsync(TOKEN_KEY)
-}
-
-export async function clearToken(): Promise<void> {
-    await SecureStore.deleteItemAsync(TOKEN_KEY)
-}
-
 export function getApiErrorMessage(error: unknown, fallback = "Ocorreu um erro inesperado."): string {
+    if (error instanceof SessionExpiredError) return error.message
+
     if (axios.isAxiosError(error)) {
         const err = error as AxiosError<ApiErrorResponse>
         const data = err.response?.data
@@ -66,7 +52,7 @@ export function getApiErrorMessage(error: unknown, fallback = "Ocorreu um erro i
         }
         if (data?.message) return data.message
         if (err.message === "Network Error") {
-            return "Não foi possível conectar à API. Verifique se o servidor está rodando e se o endereço configurado está correto."
+            return "Não foi possível conectar à API. Verifique sua conexão e tente novamente."
         }
     }
     return fallback

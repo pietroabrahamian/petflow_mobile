@@ -34,6 +34,8 @@ export type LoginResponse = {
     name: string
     email: string
     role: UserRole
+    /** Fim da validade do token (ISO-8601, UTC) */
+    expiresAt?: string
 }
 
 export type TutorRequest = {
