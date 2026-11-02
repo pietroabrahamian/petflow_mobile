@@ -1,7 +1,11 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native"
-import { colors } from "../theme/colors"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 export default function LoadingView({ label = "Carregando..." }: { label?: string }) {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     return (
         <View style={styles.container}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -10,7 +14,7 @@ export default function LoadingView({ label = "Carregando..." }: { label?: strin
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         alignItems: "center",

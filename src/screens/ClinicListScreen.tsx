@@ -17,9 +17,13 @@ import LoadingView from "../components/LoadingView"
 import ErrorView from "../components/ErrorView"
 import { getApiErrorMessage } from "../api/client"
 import { Clinic } from "../types/api"
-import { colors } from "../theme/colors"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 function ClinicCard({ clinic }: { clinic: Clinic }) {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const [isOpen, setIsOpen] = useState(false)
     const { data: plans, isLoading: plansLoading } = usePlansByClinic(clinic.id, isOpen)
 
@@ -82,6 +86,8 @@ function ClinicCard({ clinic }: { clinic: Clinic }) {
 }
 
 export default function ClinicListScreen() {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const { data: clinics, isLoading, isError, error, isFetching, refetch } = useClinics()
 
     if (isLoading) {
@@ -122,7 +128,7 @@ export default function ClinicListScreen() {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
@@ -189,7 +195,7 @@ const styles = StyleSheet.create({
     },
     contactText: {
         fontSize: 13,
-        color: '#444',
+        color: colors.textStrong,
     },
     subSection: {
         fontSize: 11,
@@ -202,7 +208,7 @@ const styles = StyleSheet.create({
         color: colors.textMuted,
     },
     planBox: {
-        backgroundColor: '#f9f9f9',
+        backgroundColor: colors.surfaceMuted,
         borderRadius: 8,
         padding: 12,
         marginTop: 8,
@@ -236,6 +242,6 @@ const styles = StyleSheet.create({
     },
     benefitText: {
         fontSize: 12,
-        color: '#444',
+        color: colors.textStrong,
     },
 })

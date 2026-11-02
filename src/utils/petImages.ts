@@ -6,18 +6,20 @@ const defaultImages: Record<string, ImageSourcePropType> = {
     default_bird: require("../../assets/pets/default_bird.png"),
 }
 
-function getDefaultImageKey(speciesId?: number): string {
-    if (speciesId === 2) return "default_cat"
-    if (speciesId === 3) return "default_bird"
+// Usa o nome da espécie vindo da API: os IDs dependem do banco e não devem ficar fixos no app
+function getDefaultImageKey(speciesName?: string): string {
+    const name = speciesName?.toLowerCase() ?? ""
+    if (name.includes("gato")) return "default_cat"
+    if (name.includes("ave") || name.includes("pássaro")) return "default_bird"
     return "default_dog"
 }
 
 export function getPetImageSource(
     photoUri: string | undefined | null,
-    speciesId?: number
+    speciesName?: string
 ): ImageSourcePropType {
     if (photoUri && (photoUri.startsWith("file://") || photoUri.startsWith("content://") || photoUri.startsWith("http"))) {
         return { uri: photoUri }
     }
-    return defaultImages[getDefaultImageKey(speciesId)]
+    return defaultImages[getDefaultImageKey(speciesName)]
 }

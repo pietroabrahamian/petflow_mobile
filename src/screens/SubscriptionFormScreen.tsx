@@ -20,7 +20,9 @@ import InlineRetry from "../components/InlineRetry"
 import { getApiErrorMessage } from "../api/client"
 import { parseDateBR, isValidDateBR } from "../utils/date"
 import { AppStackParamList } from "../navigation/types"
-import { colors } from "../theme/colors"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 function todayBR(): string {
     const hoje = new Date()
@@ -30,6 +32,8 @@ function todayBR(): string {
 }
 
 export default function SubscriptionFormScreen() {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const route = useRoute<RouteProp<AppStackParamList, "SubscriptionFormScreen">>()
     const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>()
     const { petId } = route.params
@@ -131,6 +135,7 @@ export default function SubscriptionFormScreen() {
 
                 <Text style={styles.sectionTitle}>DATA DE INÍCIO</Text>
                 <TextInput
+                    placeholderTextColor={colors.textMuted}
                     style={styles.input}
                     value={startDate}
                     onChangeText={setStartDate}
@@ -145,7 +150,7 @@ export default function SubscriptionFormScreen() {
                     {createSubscription.isPending ? (
                         <ActivityIndicator color={colors.surface} />
                     ) : (
-                        <Text style={{ color: 'white', fontSize: 18 }}>Vincular Convênio</Text>
+                        <Text style={{ color: colors.onPrimary, fontSize: 18 }}>Vincular Convênio</Text>
                     )}
                 </TouchableOpacity>
             </View>
@@ -153,7 +158,7 @@ export default function SubscriptionFormScreen() {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.surface,
@@ -170,8 +175,9 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     input: {
+        color: colors.textPrimary,
         height: 42,
-        backgroundColor: 'white',
+        backgroundColor: colors.surface,
         borderRadius: 8,
         paddingHorizontal: 10,
         marginTop: 10,
@@ -229,7 +235,7 @@ const styles = StyleSheet.create({
     buttonArea: {
         paddingHorizontal: 20,
         paddingVertical: 20,
-        backgroundColor: 'white',
+        backgroundColor: colors.surface,
         height: 86,
     },
     button: {

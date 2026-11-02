@@ -17,9 +17,13 @@ import ErrorView from "../components/ErrorView"
 import { getApiErrorMessage } from "../api/client"
 import { formatDateBR } from "../utils/date"
 import { CouponCatalogItem } from "../types/api"
-import { colors } from "../theme/colors"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 export default function RewardsScreen() {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const points = useTutorPoints()
     const coupons = useAvailableCoupons()
     const redeemCoupon = useRedeemCoupon()
@@ -142,7 +146,7 @@ export default function RewardsScreen() {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,

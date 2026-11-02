@@ -14,7 +14,6 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native"
 import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { useState, useEffect, useLayoutEffect } from "react"
-import AsyncStorage from "@react-native-async-storage/async-storage"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 
 import { useCreatePet, useUpdatePet } from "../hooks/usePets"
@@ -24,14 +23,17 @@ import { pickImageFromGallery } from "../services/imageService"
 import { getPetImageSource } from "../utils/petImages"
 import { getPetPhoto, setPetPhoto } from "../utils/petPhotoStore"
 import { getApiErrorMessage } from "../api/client"
+import { clearPetDraft, loadPetDraft, savePetDraft } from "../services/petDraftService"
 import { formatDateBR, parseDateBR, isValidDateBR } from "../utils/date"
 import { useAuth } from "../contexts/AuthContext"
 import { AppStackParamList } from "../navigation/types"
-import { colors } from "../theme/colors"
-
-const DRAFT_KEY = "@petflow:pet_draft"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 export default function PetFormScreen() {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const [name, setName] = useState("")
     const [breed, setBreed] = useState("")
     const [birthDate, setBirthDate] = useState("")
@@ -71,29 +73,17 @@ export default function PetFormScreen() {
     }, [name, breed, birthDate, weight, speciesId])
 
     const loadDraft = async () => {
-        try {
-            const raw = await AsyncStorage.getItem(DRAFT_KEY)
-            if (raw) {
-                const draft = JSON.parse(raw)
-                setName(draft.name || "")
-                setBreed(draft.breed || "")
-                setBirthDate(draft.birthDate || "")
-                setWeight(draft.weight || "")
-                setSpeciesId(draft.speciesId ?? null)
-            }
-        } catch (error) {
-            console.log("Erro ao carregar rascunho:", error)
+        const draft = await loadPetDraft()
+        if (draft) {
+            setName(draft.name || "")
+            setBreed(draft.breed || "")
+            setBirthDate(draft.birthDate || "")
+            setWeight(draft.weight || "")
+            setSpeciesId(draft.speciesId ?? null)
         }
     }
 
-    const saveDraft = async () => {
-        try {
-            const draft = { name, breed, birthDate, weight, speciesId }
-            await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
-        } catch (error) {
-            console.log("Erro ao salvar rascunho:", error)
-        }
-    }
+    const saveDraft = () => savePetDraft({ name, breed, birthDate, weight, speciesId })
 
     const handlePickPhoto = async () => {
         try {
@@ -153,7 +143,7 @@ export default function PetFormScreen() {
             } else {
                 const created = await createPet.mutateAsync(payload)
                 savedId = created.id
-                await AsyncStorage.removeItem(DRAFT_KEY)
+                await clearPetDraft()
             }
 
             if (photoUri) {
@@ -183,7 +173,7 @@ export default function PetFormScreen() {
                     {photoUri ? (
                         <>
                             <Image
-                                source={getPetImageSource(photoUri, speciesId ?? undefined)}
+                                source={getPetImageSource(photoUri, species?.find((sp) => sp.id === speciesId)?.name)}
                                 style={styles.photoPreview}
                             />
                             <View style={styles.photoOverlay}>
@@ -201,6 +191,7 @@ export default function PetFormScreen() {
 
                 <Text style={styles.sectionTitle}>NOME</Text>
                 <TextInput
+                    placeholderTextColor={colors.textMuted}
                     style={styles.input}
                     value={name}
                     onChangeText={setName}
@@ -209,6 +200,7 @@ export default function PetFormScreen() {
 
                 <Text style={styles.sectionTitle}>RAÇA</Text>
                 <TextInput
+                    placeholderTextColor={colors.textMuted}
                     style={styles.input}
                     value={breed}
                     onChangeText={setBreed}
@@ -218,6 +210,7 @@ export default function PetFormScreen() {
                 <Text style={styles.sectionTitle}>NASCIMENTO E PESO</Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                     <TextInput
+                        placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={birthDate}
                         onChangeText={setBirthDate}
@@ -225,6 +218,7 @@ export default function PetFormScreen() {
                         keyboardType="numeric"
                     />
                     <TextInput
+                        placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={weight}
                         onChangeText={setWeight}
@@ -267,7 +261,7 @@ export default function PetFormScreen() {
                     {isSaving ? (
                         <ActivityIndicator color={colors.surface} />
                     ) : (
-                        <Text style={{ color: 'white', fontSize: 18 }}>
+                        <Text style={{ color: colors.onPrimary, fontSize: 18 }}>
                             {pet == null ? "Cadastrar Pet" : "Salvar Alterações"}
                         </Text>
                     )}
@@ -277,7 +271,7 @@ export default function PetFormScreen() {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.surface,
@@ -288,9 +282,10 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     input: {
+        color: colors.textPrimary,
         flex: 1,
         height: 42,
-        backgroundColor: 'white',
+        backgroundColor: colors.surface,
         borderRadius: 8,
         paddingHorizontal: 10,
         marginTop: 10,
@@ -330,7 +325,7 @@ const styles = StyleSheet.create({
     buttonArea: {
         paddingHorizontal: 20,
         paddingVertical: 20,
-        backgroundColor: 'white',
+        backgroundColor: colors.surface,
         height: 86,
     },
     button: {
@@ -362,7 +357,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(45,106,79,0.85)',
+        backgroundColor: colors.primaryOverlay,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',

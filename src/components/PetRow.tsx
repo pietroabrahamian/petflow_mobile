@@ -2,7 +2,9 @@ import { StyleSheet, Text, View, Image } from "react-native"
 import { Pet } from "../types/api"
 import { getPetImageSource } from "../utils/petImages"
 import { formatAge } from "../utils/date"
-import { colors } from "../theme/colors"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 export default function PetRow({
     pet,
@@ -13,6 +15,8 @@ export default function PetRow({
     photoUri?: string | null
     speciesName?: string
 }) {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const age = formatAge(pet.birthDate)
 
     const metaParts = [
@@ -24,7 +28,7 @@ export default function PetRow({
     return (
         <View style={styles.container}>
             <Image
-                source={getPetImageSource(photoUri, pet.speciesId)}
+                source={getPetImageSource(photoUri, speciesName)}
                 style={styles.image}
             />
             <View style={styles.info}>
@@ -36,12 +40,12 @@ export default function PetRow({
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 12,
-        backgroundColor: 'white'
+        backgroundColor: colors.surface
     },
     image: {
         width: 60,

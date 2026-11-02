@@ -5,11 +5,14 @@ import RewardsScreen from "../screens/RewardsScreen"
 import SettingsScreen from "../screens/SettingsScreen"
 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
-import { colors } from "../theme/colors"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 const Tab = createBottomTabNavigator()
 
 export default function MainTabs() {
+    const { colors } = useTheme()
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
