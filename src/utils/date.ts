@@ -21,6 +21,14 @@ export function isValidDateBR(dateBR: string): boolean {
     return dd >= 1 && dd <= daysInMonth
 }
 
+// O teclado numérico do celular não tem "/": o usuário digita só os números e a máscara põe as barras
+export function maskDateBR(text: string): string {
+    const digits = text.replace(/\D/g, "").slice(0, 8)
+    if (digits.length <= 2) return digits
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+}
+
 // Compara como texto AAAA-MM-DD, que fica na mesma ordem das datas
 export function isFutureDateBR(dateBR: string): boolean {
     const hoje = new Date()

@@ -18,7 +18,7 @@ import { useClinics } from "../hooks/useClinics"
 import { usePlansByClinic } from "../hooks/usePlans"
 import InlineRetry from "../components/InlineRetry"
 import { getApiErrorMessage } from "../api/client"
-import { parseDateBR, isValidDateBR } from "../utils/date"
+import { parseDateBR, isValidDateBR, maskDateBR } from "../utils/date"
 import { AppStackParamList } from "../navigation/types"
 import { Palette } from "../theme/colors"
 import { useTheme } from "../contexts/ThemeContext"
@@ -138,7 +138,8 @@ export default function SubscriptionFormScreen() {
                     placeholderTextColor={colors.textMuted}
                     style={styles.input}
                     value={startDate}
-                    onChangeText={setStartDate}
+                    onChangeText={(text) => setStartDate(maskDateBR(text))}
+                    maxLength={10}
                     placeholder="DD/MM/AAAA"
                     keyboardType="numeric"
                 />

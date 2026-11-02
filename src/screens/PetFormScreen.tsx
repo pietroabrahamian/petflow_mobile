@@ -24,7 +24,7 @@ import { getPetImageSource } from "../utils/petImages"
 import { getPetPhoto, setPetPhoto } from "../utils/petPhotoStore"
 import { getApiErrorMessage } from "../api/client"
 import { clearPetDraft, loadPetDraft, savePetDraft } from "../services/petDraftService"
-import { formatDateBR, parseDateBR, isValidDateBR } from "../utils/date"
+import { formatDateBR, parseDateBR, isValidDateBR, maskDateBR } from "../utils/date"
 import { useAuth } from "../contexts/AuthContext"
 import { AppStackParamList } from "../navigation/types"
 import { Palette } from "../theme/colors"
@@ -213,7 +213,8 @@ export default function PetFormScreen() {
                         placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={birthDate}
-                        onChangeText={setBirthDate}
+                        onChangeText={(text) => setBirthDate(maskDateBR(text))}
+                        maxLength={10}
                         placeholder="DD/MM/AAAA"
                         keyboardType="numeric"
                     />

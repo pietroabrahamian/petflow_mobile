@@ -18,7 +18,7 @@ import { useEventTypes } from "../hooks/useReferenceData"
 import { useClinics } from "../hooks/useClinics"
 import InlineRetry from "../components/InlineRetry"
 import { getApiErrorMessage } from "../api/client"
-import { formatDateBR, parseDateBR, isValidDateBR, isFutureDateBR } from "../utils/date"
+import { formatDateBR, parseDateBR, isValidDateBR, isFutureDateBR, maskDateBR } from "../utils/date"
 import { AppStackParamList } from "../navigation/types"
 import { HealthEventStatus } from "../types/api"
 import { Palette } from "../theme/colors"
@@ -152,7 +152,8 @@ export default function HealthEventFormScreen() {
                     placeholderTextColor={colors.textMuted}
                     style={styles.input}
                     value={eventDate}
-                    onChangeText={setEventDate}
+                    onChangeText={(text) => setEventDate(maskDateBR(text))}
+                    maxLength={10}
                     placeholder="DD/MM/AAAA"
                     keyboardType="numeric"
                 />
