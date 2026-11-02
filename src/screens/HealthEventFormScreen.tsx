@@ -13,15 +13,17 @@ import { useRoute, useNavigation, RouteProp } from "@react-navigation/native"
 import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { useEffect, useLayoutEffect, useState } from "react"
 
-import { useCreateHealthEvent, useUpdateHealthEvent } from "../hooks/useHealthEvents"
+import { useCreateHealthEvent, useDeleteHealthEvent, useUpdateHealthEvent } from "../hooks/useHealthEvents"
 import { useEventTypes } from "../hooks/useReferenceData"
 import { useClinics } from "../hooks/useClinics"
 import InlineRetry from "../components/InlineRetry"
 import { getApiErrorMessage } from "../api/client"
-import { formatDateBR, parseDateBR, isValidDateBR } from "../utils/date"
+import { formatDateBR, parseDateBR, isValidDateBR, isFutureDateBR } from "../utils/date"
 import { AppStackParamList } from "../navigation/types"
 import { HealthEventStatus } from "../types/api"
-import { colors } from "../theme/colors"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 const STATUS_OPTIONS: { value: HealthEventStatus; label: string }[] = [
     { value: "AGENDADO", label: "Agendado" },
@@ -30,6 +32,8 @@ const STATUS_OPTIONS: { value: HealthEventStatus; label: string }[] = [
 ]
 
 export default function HealthEventFormScreen() {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const route = useRoute<RouteProp<AppStackParamList, "HealthEventFormScreen">>()
     const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>()
     const { petId, event } = route.params
@@ -38,6 +42,7 @@ export default function HealthEventFormScreen() {
     const { data: clinics, isLoading: clinicsLoading, isError: clinicsError, refetch: refetchClinics } = useClinics()
     const createEvent = useCreateHealthEvent()
     const updateEvent = useUpdateHealthEvent()
+    const deleteEvent = useDeleteHealthEvent()
     const isSaving = createEvent.isPending || updateEvent.isPending
 
     const [description, setDescription] = useState(event?.description ?? "")
@@ -61,6 +66,10 @@ export default function HealthEventFormScreen() {
             Alert.alert("Data inválida", "Digite uma data válida no formato DD/MM/AAAA")
             return
         }
+        if (status === "REALIZADO" && isFutureDateBR(eventDate)) {
+            Alert.alert("Data inválida", "Um evento realizado não pode ter data futura. Use o status Agendado.")
+            return
+        }
         if (eventTypeId == null) {
             Alert.alert("Campo inválido", "Selecione o tipo de evento")
             return
@@ -76,15 +85,41 @@ export default function HealthEventFormScreen() {
         }
 
         try {
-            if (event) {
-                await updateEvent.mutateAsync({ id: event.id, payload })
+            const saved = event
+                ? await updateEvent.mutateAsync({ id: event.id, payload })
+                : await createEvent.mutateAsync(payload)
+
+            if (saved.reminderDate) {
+                Alert.alert(
+                    "Lembrete agendado",
+                    `Vamos te avisar do reforço da vacina em ${saved.reminderDate.toLocaleDateString("pt-BR")}.`,
+                    [{ text: "OK", onPress: () => navigation.goBack() }]
+                )
             } else {
-                await createEvent.mutateAsync(payload)
+                navigation.goBack()
             }
-            navigation.goBack()
         } catch (error) {
             Alert.alert("Ops!", getApiErrorMessage(error, "Não foi possível salvar o evento."))
         }
+    }
+
+    const handleDelete = () => {
+        if (!event) return
+        Alert.alert("Excluir evento", "Deseja excluir este evento de saúde?", [
+            { text: "Cancelar", style: "cancel" },
+            {
+                text: "Excluir",
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        await deleteEvent.mutateAsync({ id: event.id, petId })
+                        navigation.goBack()
+                    } catch (error) {
+                        Alert.alert("Ops!", getApiErrorMessage(error, "Não foi possível excluir o evento."))
+                    }
+                },
+            },
+        ])
     }
 
     return (
@@ -114,6 +149,7 @@ export default function HealthEventFormScreen() {
 
                 <Text style={styles.sectionTitle}>DATA DO EVENTO</Text>
                 <TextInput
+                    placeholderTextColor={colors.textMuted}
                     style={styles.input}
                     value={eventDate}
                     onChangeText={setEventDate}
@@ -165,6 +201,7 @@ export default function HealthEventFormScreen() {
 
                 <Text style={styles.sectionTitle}>OBSERVAÇÕES</Text>
                 <TextInput
+                    placeholderTextColor={colors.textMuted}
                     style={[styles.input, styles.textArea]}
                     value={description}
                     onChangeText={setDescription}
@@ -173,6 +210,16 @@ export default function HealthEventFormScreen() {
                     numberOfLines={3}
                 />
 
+                {event && (
+                    <TouchableOpacity style={styles.deleteButton} onPress={handleDelete} disabled={deleteEvent.isPending}>
+                        {deleteEvent.isPending ? (
+                            <ActivityIndicator color={colors.danger} />
+                        ) : (
+                            <Text style={styles.deleteButtonText}>Excluir Evento</Text>
+                        )}
+                    </TouchableOpacity>
+                )}
+
             </ScrollView>
 
             <View style={styles.buttonArea}>
@@ -180,7 +227,7 @@ export default function HealthEventFormScreen() {
                     {isSaving ? (
                         <ActivityIndicator color={colors.surface} />
                     ) : (
-                        <Text style={{ color: 'white', fontSize: 18 }}>
+                        <Text style={{ color: colors.onPrimary, fontSize: 18 }}>
                             {event ? "Salvar Alterações" : "Registrar Evento"}
                         </Text>
                     )}
@@ -190,7 +237,7 @@ export default function HealthEventFormScreen() {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.surface,
@@ -201,8 +248,9 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     input: {
+        color: colors.textPrimary,
         height: 42,
-        backgroundColor: 'white',
+        backgroundColor: colors.surface,
         borderRadius: 8,
         paddingHorizontal: 10,
         marginTop: 10,
@@ -248,8 +296,21 @@ const styles = StyleSheet.create({
     buttonArea: {
         paddingHorizontal: 20,
         paddingVertical: 20,
-        backgroundColor: 'white',
+        backgroundColor: colors.surface,
         height: 86,
+    },
+    deleteButton: {
+        borderColor: colors.danger,
+        borderWidth: 1.5,
+        borderRadius: 8,
+        paddingVertical: 12,
+        alignItems: 'center',
+        marginBottom: 40,
+    },
+    deleteButtonText: {
+        color: colors.danger,
+        fontSize: 16,
+        fontWeight: 'bold',
     },
     button: {
         flex: 1,

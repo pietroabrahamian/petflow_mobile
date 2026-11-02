@@ -21,6 +21,13 @@ export function isValidDateBR(dateBR: string): boolean {
     return dd >= 1 && dd <= daysInMonth
 }
 
+// Compara como texto AAAA-MM-DD, que fica na mesma ordem das datas
+export function isFutureDateBR(dateBR: string): boolean {
+    const hoje = new Date()
+    const hojeISO = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`
+    return parseDateBR(dateBR) > hojeISO
+}
+
 export function getAgeInYears(birthDate?: string): number | null {
     if (!birthDate) return null
 

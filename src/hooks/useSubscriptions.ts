@@ -1,16 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { api } from "../api/client"
-import { Page, Subscription, SubscriptionRequest, SubscriptionStatus } from "../types/api"
+import { SubscriptionRequest, SubscriptionStatus } from "../types/api"
+import {
+    createSubscription,
+    listSubscriptions,
+    updateSubscriptionStatus,
+} from "../services/subscriptionService"
+import { runWithRewardCheck } from "../services/rewardAlertService"
 
 export function useSubscriptions(petId: number | undefined) {
     return useQuery({
         queryKey: ["subscriptions", petId],
-        queryFn: async () => {
-            const { data } = await api.get<Page<Subscription>>("/subscriptions", {
-                params: { petId, size: 50, sortBy: "createdAt", direction: "desc" },
-            })
-            return data.content
-        },
+        queryFn: () => listSubscriptions(petId!),
         enabled: petId != null,
     })
 }
@@ -18,10 +18,7 @@ export function useSubscriptions(petId: number | undefined) {
 export function useCreateSubscription() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async (payload: SubscriptionRequest) => {
-            const { data } = await api.post<Subscription>("/subscriptions", payload)
-            return data
-        },
+        mutationFn: (payload: SubscriptionRequest) => runWithRewardCheck(() => createSubscription(payload)),
         onSuccess: (created) => {
             queryClient.invalidateQueries({ queryKey: ["subscriptions", created.petId] })
             queryClient.invalidateQueries({ queryKey: ["gamification"] })
@@ -32,12 +29,8 @@ export function useCreateSubscription() {
 export function useUpdateSubscriptionStatus() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async ({ id, status }: { id: number; petId: number; status: SubscriptionStatus }) => {
-            const { data } = await api.put<Subscription>(`/subscriptions/${id}/status`, null, {
-                params: { status },
-            })
-            return data
-        },
+        mutationFn: ({ id, status }: { id: number; petId: number; status: SubscriptionStatus }) =>
+            updateSubscriptionStatus(id, status),
         onSuccess: (_updated, variables) => {
             queryClient.invalidateQueries({ queryKey: ["subscriptions", variables.petId] })
         },

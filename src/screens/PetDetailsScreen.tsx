@@ -25,7 +25,9 @@ import { formatDateBR, getAgeInYears } from "../utils/date"
 import LoadingView from "../components/LoadingView"
 import ErrorView from "../components/ErrorView"
 import { AppStackParamList } from "../navigation/types"
-import { colors } from "../theme/colors"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 const STATUS_LABEL: Record<string, string> = {
     AGENDADO: "Agendado",
@@ -34,6 +36,8 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export default function PetDetailsScreen() {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const route = useRoute<RouteProp<AppStackParamList, "PetDetailsScreen">>()
     const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>()
     const petId = route.params.pet.id
@@ -100,7 +104,11 @@ export default function PetDetailsScreen() {
             {
                 text: "Remover",
                 style: "destructive",
-                onPress: () => deleteEvent.mutate({ id: eventId, petId: pet.id }),
+                onPress: () =>
+                    deleteEvent.mutate(
+                        { id: eventId, petId: pet.id },
+                        { onError: (err) => Alert.alert("Ops!", getApiErrorMessage(err, "Não foi possível remover o evento.")) }
+                    ),
             },
         ])
     }
@@ -132,7 +140,7 @@ export default function PetDetailsScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
 
                 <View style={styles.photoSection}>
-                    <Image source={getPetImageSource(photoUri, pet.speciesId)} style={styles.photo} />
+                    <Image source={getPetImageSource(photoUri, speciesName)} style={styles.photo} />
                     <Text style={styles.name}>{pet.name}</Text>
                     {!!pet.breed && <Text style={styles.breed}>{pet.breed}</Text>}
                 </View>
@@ -255,7 +263,7 @@ export default function PetDetailsScreen() {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
