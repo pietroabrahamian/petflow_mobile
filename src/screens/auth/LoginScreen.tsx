@@ -9,19 +9,23 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Image,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
 import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { useState } from "react"
 
-import { useAuth } from "../../contexts/AuthContext"
+import { signIn } from "../../services/authService"
 import { AuthStackParamList } from "../../navigation/types"
-import { colors } from "../../theme/colors"
+import { Palette } from "../../theme/colors"
+import { useTheme } from "../../contexts/ThemeContext"
+import { useThemedStyles } from "../../hooks/useThemedStyles"
 
 export default function LoginScreen() {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>()
-    const { login } = useAuth()
 
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
@@ -34,7 +38,7 @@ export default function LoginScreen() {
         }
         setIsSubmitting(true)
         try {
-            await login(email.trim(), password)
+            await signIn(email.trim(), password)
         } catch (error) {
             Alert.alert("Não foi possível entrar", (error as Error).message)
         } finally {
@@ -49,11 +53,12 @@ export default function LoginScreen() {
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
                 <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-                    <Text style={styles.logo}>🐾 PetFlow</Text>
+                    <Image source={require("../../../assets/logo.png")} style={styles.logo} />
                     <Text style={styles.subtitle}>Entre para cuidar da saúde do seu pet</Text>
 
                     <Text style={styles.label}>E-MAIL</Text>
                     <TextInput
+                        placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={email}
                         onChangeText={setEmail}
@@ -65,6 +70,7 @@ export default function LoginScreen() {
 
                     <Text style={styles.label}>SENHA</Text>
                     <TextInput
+                        placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={password}
                         onChangeText={setPassword}
@@ -99,7 +105,7 @@ export default function LoginScreen() {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
@@ -109,11 +115,12 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         paddingHorizontal: 28,
     },
+    // A logo tem fundo claro: o cantinho arredondado deixa ela bonita também no tema escuro
     logo: {
-        fontSize: 34,
-        fontWeight: "bold",
-        color: colors.primary,
-        textAlign: "center",
+        width: 180,
+        height: 180,
+        borderRadius: 24,
+        alignSelf: "center",
     },
     subtitle: {
         fontSize: 14,
@@ -128,6 +135,7 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     input: {
+        color: colors.textPrimary,
         height: 46,
         backgroundColor: colors.surface,
         borderRadius: 8,

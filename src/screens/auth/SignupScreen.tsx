@@ -15,16 +15,19 @@ import { useNavigation } from "@react-navigation/native"
 import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { useState } from "react"
 
-import { useAuth } from "../../contexts/AuthContext"
+import { signUp } from "../../services/authService"
 import { AuthStackParamList } from "../../navigation/types"
-import { colors } from "../../theme/colors"
+import { Palette } from "../../theme/colors"
+import { useTheme } from "../../contexts/ThemeContext"
+import { useThemedStyles } from "../../hooks/useThemedStyles"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
 
 export default function SignupScreen() {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>()
-    const { register } = useAuth()
 
     const [name, setName] = useState("")
     const [email, setEmail] = useState("")
@@ -53,7 +56,7 @@ export default function SignupScreen() {
 
         setIsSubmitting(true)
         try {
-            await register({
+            await signUp({
                 name: name.trim(),
                 email: email.trim(),
                 phone: phone.trim() || undefined,
@@ -78,6 +81,7 @@ export default function SignupScreen() {
 
                     <Text style={styles.label}>NOME COMPLETO</Text>
                     <TextInput
+                        placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={name}
                         onChangeText={setName}
@@ -86,6 +90,7 @@ export default function SignupScreen() {
 
                     <Text style={styles.label}>E-MAIL</Text>
                     <TextInput
+                        placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={email}
                         onChangeText={setEmail}
@@ -97,6 +102,7 @@ export default function SignupScreen() {
 
                     <Text style={styles.label}>TELEFONE (OPCIONAL)</Text>
                     <TextInput
+                        placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={phone}
                         onChangeText={setPhone}
@@ -106,6 +112,7 @@ export default function SignupScreen() {
 
                     <Text style={styles.label}>SENHA</Text>
                     <TextInput
+                        placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={password}
                         onChangeText={setPassword}
@@ -115,6 +122,7 @@ export default function SignupScreen() {
 
                     <Text style={styles.label}>CONFIRMAR SENHA</Text>
                     <TextInput
+                        placeholderTextColor={colors.textMuted}
                         style={styles.input}
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
@@ -148,7 +156,7 @@ export default function SignupScreen() {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
@@ -178,6 +186,7 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     input: {
+        color: colors.textPrimary,
         height: 46,
         backgroundColor: colors.surface,
         borderRadius: 8,

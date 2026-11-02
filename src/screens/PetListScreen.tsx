@@ -10,6 +10,7 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native"
 import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { SafeAreaView } from "react-native-safe-area-context"
+import MaterialIcons from "@expo/vector-icons/MaterialIcons"
 import { useCallback, useState } from "react"
 
 import PetRow from "../components/PetRow"
@@ -21,9 +22,13 @@ import { getApiErrorMessage } from "../api/client"
 import { getAllPetPhotos } from "../utils/petPhotoStore"
 import { AppStackParamList } from "../navigation/types"
 import { Pet } from "../types/api"
-import { colors } from "../theme/colors"
+import { Palette } from "../theme/colors"
+import { useTheme } from "../contexts/ThemeContext"
+import { useThemedStyles } from "../hooks/useThemedStyles"
 
 export default function PetListScreen() {
+    const { colors } = useTheme()
+    const styles = useThemedStyles(createStyles)
     const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>()
     const { data: pets, isLoading, isError, error, isFetching, refetch } = usePets()
     const { data: species } = useSpecies()
@@ -61,9 +66,11 @@ export default function PetListScreen() {
                     <Text style={styles.subtitle}>{pets?.length ?? 0} pets cadastrados</Text>
                 </View>
                 <TouchableOpacity
+                    style={styles.addButton}
                     onPress={() => navigation.navigate("PetFormScreen")}
+                    accessibilityLabel="Cadastrar novo pet"
                 >
-                    <Text style={styles.addButton}>+</Text>
+                    <MaterialIcons name="add" size={30} color={colors.onPrimary} />
                 </TouchableOpacity>
             </View>
 
@@ -94,7 +101,7 @@ export default function PetListScreen() {
     )
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Palette) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
@@ -117,9 +124,13 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     addButton: {
-        color: colors.primary,
-        fontSize: 32,
-        fontWeight: '900',
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 3,
     },
     list: {
         marginVertical: 16,
