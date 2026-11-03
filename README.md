@@ -30,7 +30,7 @@ Na Sprint 3 o app deixou de usar dados mockados e passou a ser 100% integrado à
 
 ## 🎥 Vídeo de apresentação
 
-[Assistir no YouTube](https://youtu.be/Pm0-lzUVwsA)
+[Assistir no YouTube](https://youtu.be/P-qX4Ib9oXE)
 
 ---
 
@@ -144,6 +144,12 @@ eas build --platform android --profile preview   # gera o .apk
 ```
 
 O `.apk` gerado é enviado ao **Firebase App Distribution** (console do Firebase › App Distribution › enviar versão) e liberado para o grupo de testers que inclui o professor. O `app.config.js` grava no build o hash do commit (`EAS_BUILD_GIT_COMMIT_HASH`), exibido em **Ajustes › Sobre o App** — é ele que liga a versão instalada ao código deste repositório.
+
+### Instalando pelo App Tester
+
+1. Aceite o convite do Firebase App Distribution recebido por e-mail e instale o **App Tester**.
+2. No App Tester, abra o **PetFlow** e toque em **Download › Instalar**.
+3. Como o app é distribuído fora da Play Store, o **Google Play Protect** pode bloquear a instalação. Nesse caso, toque em **Mais detalhes › Instalar mesmo assim**.
 
 ## 🚀 Como executar
 
